@@ -251,18 +251,21 @@ export default function WellnessPage() {
 
       {/* Section 2 — Roomie chat */}
       <section className="rounded-2xl bg-white p-6 shadow-sm">
-        <div className="flex items-center gap-3">
-          <motion.div
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-green-400 to-green-600 text-2xl"
-            animate={{ opacity: [1, 0.4, 1] }}
-            transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
-          >
-            🦁
-          </motion.div>
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Roomie</h2>
-            <p className="text-sm text-gray-500">Your wellness coach</p>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <motion.div
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-green-400 to-green-600 text-2xl"
+              animate={{ opacity: [1, 0.4, 1] }}
+              transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+            >
+              🦁
+            </motion.div>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Roomie</h2>
+              <p className="text-sm text-gray-500">Your wellness coach</p>
+            </div>
           </div>
+          <span className="shrink-0 self-end text-xs text-gray-400">✨ Powered by Gemini</span>
         </div>
 
         <div className="mt-6 flex max-h-[min(420px,50vh)] flex-col gap-3 overflow-y-auto rounded-xl bg-gray-50/80 p-4">
