@@ -16,7 +16,7 @@ const links = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/courses", label: "Courses", icon: BookOpen },
   { href: "/achievements", label: "Achievements", icon: Trophy },
-  { href: "/wellness", label: "Wellness", icon: HeartPulse },
+  { href: "/dashboard/wellness", label: "Wellness", icon: HeartPulse },
   { href: "/upload", label: "Upload", icon: Upload },
 ];
 

@@ -1,203 +1,417 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { toast } from "sonner";
 
 type Log = { id: string; mood: number; notes: string | null; logged_at: string };
 
+const INTRO_TEXT =
+  "Hello fellow student, I'm Roomie. Welcome to LearnPulse. I'm here to help you navigate your mental health in order for you to have a smooth and fun study session. Tell me how you're feeling today.";
+
+const MOODS = [
+  { value: 1, emoji: "😢", label: "Terrible" },
+  { value: 2, emoji: "😕", label: "Bad" },
+  { value: 3, emoji: "😐", label: "Okay" },
+  { value: 4, emoji: "🙂", label: "Good" },
+  { value: 5, emoji: "😄", label: "Amazing" },
+] as const;
+
+function segmentStroke(m1: number, m2: number): string {
+  const avg = (m1 + m2) / 2;
+  if (avg < 2.5) return "#ef4444";
+  if (avg < 3.5) return "#eab308";
+  return "#22c55e";
+}
+
+function filterLogsLast14Days(logs: Log[]): Log[] {
+  const end = new Date();
+  end.setHours(23, 59, 59, 999);
+  const start = new Date(end);
+  start.setDate(start.getDate() - 13);
+  start.setHours(0, 0, 0, 0);
+  return logs.filter((l) => {
+    const d = new Date(l.logged_at);
+    return d >= start && d <= end;
+  });
+}
+
+function buildDailyChartData(logs: Log[]) {
+  const inRange = filterLogsLast14Days(logs);
+  const end = new Date();
+  end.setHours(23, 59, 59, 999);
+  const start = new Date(end);
+  start.setDate(start.getDate() - 13);
+  start.setHours(0, 0, 0, 0);
+
+  const byDay = new Map<string, number[]>();
+  for (const l of inRange) {
+    const d = new Date(l.logged_at);
+    const key = d.toISOString().slice(0, 10);
+    const arr = byDay.get(key) ?? [];
+    arr.push(l.mood);
+    byDay.set(key, arr);
+  }
+
+  const points: { date: string; mood: number; label: string }[] = [];
+  for (let i = 0; i < 14; i++) {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    const key = d.toISOString().slice(0, 10);
+    const moods = byDay.get(key);
+    if (moods?.length) {
+      const avg = moods.reduce((a, b) => a + b, 0) / moods.length;
+      points.push({
+        date: key,
+        mood: Math.round(avg * 10) / 10,
+        label: d.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+      });
+    }
+  }
+  return points;
+}
+
+function buildSegmentChartRows(points: { date: string; mood: number; label: string }[]) {
+  if (points.length === 0) return [];
+  const rows = points.map((p, idx) => {
+    const row: Record<string, string | number | null> = {
+      label: p.label,
+      date: p.date,
+      mood: p.mood,
+    };
+    for (let s = 0; s < points.length - 1; s++) {
+      row[`seg_${s}`] = idx === s || idx === s + 1 ? p.mood : null;
+    }
+    return row;
+  });
+  return rows;
+}
+
 export default function WellnessPage() {
   const [logs, setLogs] = useState<Log[]>([]);
-  const [coach, setCoach] = useState("");
-  const [breakOn, setBreakOn] = useState(true);
-  const [mood, setMood] = useState(3);
-  const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(true);
+  const [selectedMood, setSelectedMood] = useState<number | null>(null);
+  const [loggingMood, setLoggingMood] = useState(false);
 
-  async function refresh() {
+  const [introTyped, setIntroTyped] = useState("");
+  const [introDone, setIntroDone] = useState(false);
+  const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; content: string }[]>(
+    [],
+  );
+  const [input, setInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  const chartPoints = useMemo(() => buildDailyChartData(logs), [logs]);
+  const segmentRows = useMemo(() => buildSegmentChartRows(chartPoints), [chartPoints]);
+  const segmentCount = Math.max(0, chartPoints.length - 1);
+
+  const refresh = useCallback(async () => {
     const res = await fetch("/api/wellness");
-    const d = (await res.json()) as {
-      logs?: Log[];
-      coachInsights?: string;
-      breakRemindersEnabled?: boolean;
-      error?: string;
-    };
+    const d = (await res.json()) as { logs?: Log[]; error?: string };
     if (!res.ok) {
       toast.error(d.error ?? "Could not load wellness");
       return;
     }
     setLogs(d.logs ?? []);
-    setCoach(d.coachInsights ?? "");
-    if (typeof d.breakRemindersEnabled === "boolean") setBreakOn(d.breakRemindersEnabled);
-  }
+  }, []);
 
   useEffect(() => {
     void refresh().finally(() => setLoading(false));
-  }, []);
+  }, [refresh]);
 
-  async function logMood(e: React.FormEvent) {
-    e.preventDefault();
+  useEffect(() => {
+    if (introDone) return;
+    if (introTyped.length >= INTRO_TEXT.length) {
+      setIntroDone(true);
+      setChatMessages([{ role: "assistant", content: INTRO_TEXT }]);
+      return;
+    }
+    const t = window.setTimeout(() => {
+      setIntroTyped(INTRO_TEXT.slice(0, introTyped.length + 1));
+    }, 30);
+    return () => window.clearTimeout(t);
+  }, [introTyped, introDone]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages, chatLoading, introTyped, introDone]);
+
+  async function logMood(value: number) {
+    setSelectedMood(value);
+    setLoggingMood(true);
     const res = await fetch("/api/wellness", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mood, notes: notes.trim() || undefined }),
+      body: JSON.stringify({ mood: value }),
     });
+    setLoggingMood(false);
     if (!res.ok) {
       const d = (await res.json()) as { error?: string };
       toast.error(d.error ?? "Could not log mood");
       return;
     }
-    toast.success("Mood logged");
-    setNotes("");
+    toast.success("Mood saved", { description: "Thanks for checking in with Roomie." });
     void refresh();
   }
 
-  async function toggleBreak(next: boolean) {
-    const res = await fetch("/api/wellness", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ break_reminders_enabled: next }),
-    });
-    if (!res.ok) {
-      toast.error("Could not update settings");
-      return;
+  async function sendChat() {
+    const trimmed = input.trim();
+    if (!trimmed || chatLoading || !introDone) return;
+
+    const nextHistory = [...chatMessages, { role: "user" as const, content: trimmed }];
+    setChatMessages(nextHistory);
+    setInput("");
+    setChatLoading(true);
+
+    try {
+      const res = await fetch("/api/wellness/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: nextHistory.map((m) => ({ role: m.role, content: m.content })),
+        }),
+      });
+      const data = (await res.json()) as { reply?: string; error?: string };
+      if (!res.ok) {
+        toast.error(data.error ?? "Roomie could not reply");
+        setChatMessages((prev) => prev.slice(0, -1));
+        setInput(trimmed);
+        return;
+      }
+      const reply = data.reply?.trim() ?? "";
+      if (!reply) {
+        toast.error("Empty reply");
+        setChatMessages((prev) => prev.slice(0, -1));
+        setInput(trimmed);
+        return;
+      }
+      setChatMessages([...nextHistory, { role: "assistant", content: reply }]);
+    } catch {
+      toast.error("Something went wrong");
+      setChatMessages((prev) => prev.slice(0, -1));
+      setInput(trimmed);
+    } finally {
+      setChatLoading(false);
     }
-    setBreakOn(next);
-    toast.success(next ? "Break reminders on" : "Break reminders off");
   }
 
-  const weekBuckets = buildWeeklyBuckets(logs);
-
-  if (loading) return <p className="text-zinc-500">Loading wellness…</p>;
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-3xl">
+        <p className="text-zinc-500">Loading wellness…</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-10">
+    <div className="mx-auto max-w-3xl space-y-8 pb-24">
       <header>
-        <h1 className="text-3xl font-semibold tracking-tight text-white">Wellness</h1>
-        <p className="mt-1 text-zinc-400">Mood history, trends, and gentle coaching.</p>
+        <h1 className="text-3xl font-semibold tracking-tight text-white">Wellness with Roomie</h1>
+        <p className="mt-1 text-sm text-zinc-400">
+          Log how you feel, chat with Roomie, and see your mood trend.
+        </p>
       </header>
 
-      <motion.form
-        initial={{ opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        onSubmit={(e) => void logMood(e)}
-        className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6"
-      >
-        <h2 className="font-medium text-white">Log mood</h2>
-        <p className="text-sm text-zinc-500">1 = low, 5 = great — before you dive in.</p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {[1, 2, 3, 4, 5].map((n) => (
-            <button
-              key={n}
-              type="button"
-              onClick={() => setMood(n)}
-              className={`h-10 w-10 rounded-full text-sm font-semibold ${
-                mood === n
-                  ? "bg-emerald-500 text-emerald-950"
-                  : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
-              }`}
-            >
-              {n}
-            </button>
-          ))}
+      {/* Section 1 — Mood log */}
+      <section className="rounded-2xl bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-semibold text-gray-900">Mood log</h2>
+        <p className="mt-1 text-sm text-gray-500">Tap how you feel right now.</p>
+        <div className="mt-4 flex flex-wrap justify-center gap-3 sm:justify-between">
+          {MOODS.map(({ value, emoji, label }) => {
+            const selected = selectedMood === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                disabled={loggingMood}
+                onClick={() => void logMood(value)}
+                className={`flex min-w-[5.5rem] flex-col items-center gap-1 rounded-xl border-2 px-3 py-3 text-sm transition ${
+                  selected
+                    ? "border-green-600 bg-green-50 text-green-900"
+                    : "border-transparent bg-gray-50 text-gray-800 hover:border-green-200"
+                } disabled:opacity-60`}
+              >
+                <span className="text-2xl">{emoji}</span>
+                <span className="font-medium">{label}</span>
+              </button>
+            );
+          })}
         </div>
-        <textarea
-          className="mt-4 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white outline-none focus:border-emerald-500"
-          rows={2}
-          placeholder="Optional note"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-        />
-        <button
-          type="submit"
-          className="mt-4 rounded-xl bg-emerald-500 px-5 py-2 text-sm font-medium text-emerald-950 hover:bg-emerald-400"
-        >
-          Save entry
-        </button>
-      </motion.form>
+      </section>
 
-      <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
-        <h2 className="font-medium text-white">Weekly mood trend</h2>
-        <p className="text-sm text-zinc-500">Average mood per weekday (last 7 days)</p>
-        <div className="mt-6 flex h-40 items-end justify-between gap-2">
-          {weekBuckets.map((b) => (
-            <div key={b.label} className="flex flex-1 flex-col items-center gap-2">
-              <div
-                className="w-full max-w-[48px] rounded-t-lg bg-emerald-500/70"
-                style={{ height: `${Math.max(6, b.avg * 18)}%` }}
-                title={`Avg ${b.avg.toFixed(1)}`}
-              />
-              <span className="text-[10px] uppercase text-zinc-500">{b.label}</span>
+      {/* Section 2 — Roomie chat */}
+      <section className="rounded-2xl bg-white p-6 shadow-sm">
+        <div className="flex items-center gap-3">
+          <motion.div
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-green-400 to-green-600 text-2xl"
+            animate={{ opacity: [1, 0.4, 1] }}
+            transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+          >
+            🦁
+          </motion.div>
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Roomie</h2>
+            <p className="text-sm text-gray-500">Your wellness coach</p>
+          </div>
+        </div>
+
+        <div className="mt-6 flex max-h-[min(420px,50vh)] flex-col gap-3 overflow-y-auto rounded-xl bg-gray-50/80 p-4">
+          {!introDone && (
+            <div className="flex justify-start">
+              <div className="max-w-[85%] rounded-2xl rounded-bl-md bg-green-100 px-4 py-3 text-sm text-green-900">
+                {introTyped}
+                {introTyped.length < INTRO_TEXT.length && (
+                  <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-green-700 align-middle" />
+                )}
+              </div>
             </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
-        <h2 className="font-medium text-white">Coach insights</h2>
-        <pre className="mt-3 whitespace-pre-wrap font-sans text-sm leading-relaxed text-zinc-300">
-          {coach}
-        </pre>
-      </section>
-
-      <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
-        <h2 className="font-medium text-white">Break reminder settings</h2>
-        <p className="text-sm text-zinc-500">
-          After three hours in a session, we suggest a breathing break.
-        </p>
-        <label className="mt-4 flex cursor-pointer items-center gap-3 text-sm text-zinc-300">
-          <input
-            type="checkbox"
-            className="h-4 w-4 rounded border-zinc-600"
-            checked={breakOn}
-            onChange={(e) => void toggleBreak(e.target.checked)}
-          />
-          Enable break prompts after long sessions
-        </label>
-      </section>
-
-      <section>
-        <h2 className="mb-3 font-medium text-white">Mood history</h2>
-        <ul className="divide-y divide-zinc-800 rounded-xl border border-zinc-800">
-          {logs.length === 0 ? (
-            <li className="px-4 py-6 text-sm text-zinc-500">No entries yet.</li>
-          ) : (
-            logs.map((l) => (
-              <li key={l.id} className="flex items-center justify-between px-4 py-3 text-sm">
-                <span className="text-zinc-400">
-                  {new Date(l.logged_at).toLocaleString()}
-                </span>
-                <span className="font-medium text-emerald-300">Mood {l.mood}</span>
-                {l.notes && <span className="max-w-xs truncate text-zinc-500">{l.notes}</span>}
-              </li>
-            ))
           )}
-        </ul>
+
+          {introDone &&
+            chatMessages.map((m, i) => (
+              <div
+                key={`${i}-${m.role}-${m.content.slice(0, 12)}`}
+                className={`flex ${m.role === "assistant" ? "justify-start" : "justify-end"}`}
+              >
+                <div
+                  className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${
+                    m.role === "assistant"
+                      ? "rounded-bl-md bg-green-100 text-green-900"
+                      : "rounded-br-md bg-gray-100 text-gray-900"
+                  }`}
+                >
+                  {m.content}
+                </div>
+              </div>
+            ))}
+
+          {chatLoading && (
+            <div className="flex justify-start">
+              <div className="flex items-center gap-1 rounded-2xl rounded-bl-md bg-green-100 px-4 py-3">
+                {[0, 1, 2].map((d) => (
+                  <motion.span
+                    key={d}
+                    className="h-2 w-2 rounded-full bg-green-600"
+                    animate={{ y: [0, -5, 0], opacity: [0.4, 1, 0.4] }}
+                    transition={{
+                      duration: 0.9,
+                      repeat: Infinity,
+                      delay: d * 0.15,
+                      ease: "easeInOut",
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+          <div ref={chatEndRef} />
+        </div>
+
+        {introDone && (
+          <form
+            className="mt-4 flex gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void sendChat();
+            }}
+          >
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Tell Roomie how you're feeling…"
+              className="min-w-0 flex-1 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 outline-none ring-green-500/30 placeholder:text-gray-400 focus:border-green-500 focus:ring-2"
+              disabled={chatLoading}
+            />
+            <button
+              type="submit"
+              disabled={chatLoading || !input.trim()}
+              className="shrink-0 rounded-xl bg-green-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-green-500 disabled:opacity-50"
+            >
+              Send
+            </button>
+          </form>
+        )}
+      </section>
+
+      {/* Section 3 — Mood trend */}
+      <section className="rounded-2xl bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-semibold text-gray-900">Mood trend</h2>
+        <p className="mt-1 text-sm text-gray-500">Last 14 days (daily average when you log multiple times).</p>
+
+        {chartPoints.length === 0 ? (
+          <p className="mt-8 rounded-xl border border-dashed border-gray-200 bg-gray-50 py-10 text-center text-sm text-gray-600">
+            No mood data yet. Log your first mood above!
+          </p>
+        ) : (
+          <>
+            <div className="mt-6 h-64 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={segmentRows} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#6b7280" }} />
+                  <YAxis domain={[1, 5]} ticks={[1, 2, 3, 4, 5]} tick={{ fontSize: 11, fill: "#6b7280" }} />
+                  <Tooltip
+                    contentStyle={{
+                      borderRadius: "12px",
+                      border: "1px solid #e5e7eb",
+                      fontSize: "12px",
+                    }}
+                    formatter={(v) => [v ?? "—", "Mood"]}
+                  />
+                  {Array.from({ length: segmentCount }, (_, s) => (
+                    <Line
+                      key={s}
+                      type="monotone"
+                      dataKey={`seg_${s}`}
+                      stroke={segmentStroke(chartPoints[s]!.mood, chartPoints[s + 1]!.mood)}
+                      strokeWidth={3}
+                      dot={false}
+                      activeDot={{ r: 5 }}
+                      connectNulls
+                      isAnimationActive={false}
+                    />
+                  ))}
+                  {chartPoints.length === 1 && (
+                    <Line
+                      type="monotone"
+                      dataKey="mood"
+                      stroke="#22c55e"
+                      strokeWidth={3}
+                      dot={{ r: 5, fill: "#22c55e" }}
+                      isAnimationActive={false}
+                    />
+                  )}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-6 text-sm text-gray-600">
+              <span>
+                <span className="mr-1.5 text-red-500">🔴</span>
+                Bad (1–2)
+              </span>
+              <span>
+                <span className="mr-1.5 text-yellow-500">🟡</span>
+                Moderate (3)
+              </span>
+              <span>
+                <span className="mr-1.5 text-green-500">🟢</span>
+                Good (4–5)
+              </span>
+            </div>
+          </>
+        )}
       </section>
     </div>
   );
-}
-
-function buildWeeklyBuckets(logs: Log[]) {
-  const labels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const now = new Date();
-  const buckets = labels.map((label, dayIndex) => ({ label, avg: 0, n: 0, dayIndex }));
-
-  const cutoff = new Date(now);
-  cutoff.setDate(cutoff.getDate() - 7);
-
-  for (const l of logs) {
-    const d = new Date(l.logged_at);
-    if (d < cutoff) continue;
-    const idx = d.getDay();
-    const b = buckets[idx];
-    if (!b) continue;
-    b.avg += l.mood;
-    b.n += 1;
-  }
-
-  return buckets.map((b) => ({
-    label: b.label,
-    avg: b.n ? b.avg / b.n : 0,
-  }));
 }
