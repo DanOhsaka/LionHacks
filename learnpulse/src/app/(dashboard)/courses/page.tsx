@@ -1,23 +1,97 @@
+"use client";
+
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
+import { BookOpen, Flame, Play, Trash2 } from "lucide-react";
 
-import { createClient } from "@/lib/supabase/server";
-import { BookOpen, Flame, Play } from "lucide-react";
+import { DeleteCourseModal } from "@/components/courses/DeleteCourseModal";
+import { createClient } from "@/lib/supabase/client";
 
-export default async function CoursesPage() {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+type CourseRow = {
+  id: string;
+  title: string;
+  subject: string;
+  completion_percent: number | string | null;
+  current_streak: number | null;
+  last_session_at: string | null;
+};
 
-  const { data: courses } = await supabase
-    .from("courses")
-    .select("*")
-    .eq("user_id", user.id)
-    .order("updated_at", { ascending: false });
+export default function CoursesPage() {
+  const router = useRouter();
+  const [courses, setCourses] = useState<CourseRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [deleteTarget, setDeleteTarget] = useState<CourseRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
-  const list = courses ?? [];
+  const loadCourses = useCallback(async (): Promise<boolean> => {
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      router.replace("/login");
+      return false;
+    }
+    const { data } = await supabase
+      .from("courses")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("updated_at", { ascending: false });
+    setCourses((data as CourseRow[] | null) ?? []);
+    return true;
+  }, [router]);
+
+  useEffect(() => {
+    void loadCourses().then((loaded) => {
+      if (loaded) setLoading(false);
+    });
+  }, [loadCourses]);
+
+  async function handleConfirmDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/courses/${deleteTarget.id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const raw = await res.text();
+      let body: { success?: boolean; error?: string } = {};
+      try {
+        body = raw ? (JSON.parse(raw) as { success?: boolean; error?: string }) : {};
+      } catch {
+        toast.error(
+          raw
+            ? `Delete failed (${res.status}). The server did not return JSON — check the Network tab for this request.`
+            : `Delete failed (${res.status}). Empty response.`,
+        );
+        return;
+      }
+      if (!res.ok || !body.success) {
+        toast.error(body.error ?? `Could not delete course (${res.status})`);
+        return;
+      }
+      setCourses((prev) => prev.filter((c) => c.id !== deleteTarget.id));
+      setDeleteTarget(null);
+      toast.success("✓ Course deleted");
+    } catch {
+      toast.error("Could not delete course");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-5xl">
+        <p className="text-zinc-500">Loading course library…</p>
+      </div>
+    );
+  }
+
+  const list = courses;
 
   return (
     <div className="mx-auto max-w-5xl space-y-8">
@@ -69,9 +143,7 @@ export default async function CoursesPage() {
                 <div className="col-span-2">
                   <dt className="text-xs uppercase tracking-wide text-zinc-500">Last session</dt>
                   <dd className="text-zinc-300">
-                    {c.last_session_at
-                      ? new Date(c.last_session_at).toLocaleDateString()
-                      : "—"}
+                    {c.last_session_at ? new Date(c.last_session_at).toLocaleDateString() : "—"}
                   </dd>
                 </div>
               </dl>
@@ -89,11 +161,26 @@ export default async function CoursesPage() {
                 >
                   Continue
                 </Link>
+                <button
+                  type="button"
+                  aria-label="Delete course"
+                  onClick={() => setDeleteTarget(c)}
+                  className="shrink-0 rounded-lg border border-red-500 p-2 text-red-500 transition hover:bg-red-50 hover:shadow-md hover:shadow-red-500/50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
               </div>
             </article>
           ))}
         </div>
       )}
+
+      <DeleteCourseModal
+        open={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleConfirmDelete}
+        isDeleting={deleting}
+      />
     </div>
   );
 }
