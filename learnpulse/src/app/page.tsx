@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { BookOpen, Brain, Sparkles } from "lucide-react";
@@ -8,7 +9,16 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <header className="mx-auto flex max-w-5xl items-center justify-between px-6 py-6">
-        <span className="text-lg font-semibold tracking-tight text-white">PridePath</span>
+        <div className="flex items-center gap-3">
+          <span className="text-lg font-semibold tracking-tight text-white">PridePath</span>
+          <Image
+            src="/logo.jpeg"
+            alt="PridePath"
+            width={48}
+            height={48}
+            className="rounded-full object-contain"
+          />
+        </div>
         <div className="flex gap-3">
           <Link
             href="/login"
