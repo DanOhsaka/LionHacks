@@ -2,8 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/route-handler";
 
-function learnpulseEmail(username: string) {
-  return `${username}@learnpulse.app`;
+function pridepathEmail(username: string) {
+  return `${username}@pridepath.app`;
 }
 
 export async function POST(request: NextRequest) {
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
   }
 
   const { supabase, applyAuthCookies } = createSupabaseRouteHandlerClient(request);
-  const email = learnpulseEmail(username.trim());
+  const email = pridepathEmail(username.trim());
 
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email,

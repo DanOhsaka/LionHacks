@@ -16,7 +16,7 @@ import { toast } from "sonner";
 type Log = { id: string; mood: number; notes: string | null; logged_at: string };
 
 const INTRO_TEXT =
-  "Hello fellow student, I'm Roomie. Welcome to LearnPulse. I'm here to help you navigate your mental health in order for you to have a smooth and fun study session. Tell me how you're feeling today.";
+  "Hello fellow student, I'm Roomie. Welcome to PridePath. I'm here to help you navigate your mental health in order for you to have a smooth and fun study session. Tell me how you're feeling today.";
 
 const MOODS = [
   { value: 1, emoji: "😢", label: "Terrible" },

@@ -26,7 +26,7 @@ export default function SignupPage() {
         toast.error(data.error ?? "Could not create account");
         return;
       }
-      toast.success("Welcome to LearnPulse");
+      toast.success("Welcome to PridePath");
       router.push("/dashboard");
       router.refresh();
     } catch {
@@ -46,7 +46,7 @@ export default function SignupPage() {
         Create account
       </h1>
       <p className="mt-1 text-center text-sm text-zinc-400">
-        LearnPulse — study as a game
+        PridePath — study as a game
       </p>
       <form onSubmit={onSubmit} className="mt-8 space-y-4">
         <div>

@@ -31,11 +31,11 @@ export default function AchievementsPage() {
 
   async function shareBadge(a: AchievementRow) {
     const text = a.unlocked
-      ? `I unlocked "${a.title}" on LearnPulse — ${a.description}`
-      : `Working toward "${a.title}" on LearnPulse`;
+      ? `I unlocked "${a.title}" on PridePath — ${a.description}`
+      : `Working toward "${a.title}" on PridePath`;
     try {
       if (navigator.share) {
-        await navigator.share({ title: "LearnPulse", text });
+        await navigator.share({ title: "PridePath", text });
       } else {
         await navigator.clipboard.writeText(text);
         toast.success("Copied to clipboard");

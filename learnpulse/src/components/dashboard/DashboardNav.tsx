@@ -38,7 +38,7 @@ export function DashboardNav() {
   return (
     <aside className="flex w-full flex-col gap-1 border-b border-zinc-800 bg-zinc-950/90 px-3 py-3 sm:w-52 sm:border-b-0 sm:border-r sm:py-6">
       <div className="mb-4 hidden px-2 sm:block">
-        <span className="text-lg font-semibold tracking-tight text-white">LearnPulse</span>
+        <span className="text-lg font-semibold tracking-tight text-white">PridePath</span>
         <p className="text-xs text-zinc-500">Study smarter</p>
       </div>
       <nav className="flex flex-row flex-wrap gap-1 sm:flex-col">

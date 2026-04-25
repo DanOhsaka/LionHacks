@@ -4,7 +4,7 @@ import { Toaster } from "sonner";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "LearnPulse — AI study games",
+  title: "PridePath — AI study games",
   description:
     "Upload your materials, play quiz modes, track wellness, and earn achievements.",
 };

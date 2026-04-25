@@ -1,4 +1,4 @@
--- LearnPulse schema: profiles, courses, checkpoints, sessions, achievements, wellness_logs
+-- PridePath schema: profiles, courses, checkpoints, sessions, achievements, wellness_logs
 -- Run in Supabase SQL editor after project creation.
 
 -- Extensions
