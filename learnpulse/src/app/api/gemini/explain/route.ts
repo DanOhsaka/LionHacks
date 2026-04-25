@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { geminiFlash } from "@/lib/gemini/client";
+import { assistantText, mistralChatComplete } from "@/lib/mistral/client";
 import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
@@ -33,10 +33,16 @@ export async function POST(request: Request) {
   }
 
   try {
-    const r = await geminiFlash.generateContent(
-      `In 2 short sentences, clarify the correct reasoning for this question, building on: "${explanation.slice(0, 800)}". Question: "${question.slice(0, 400)}". Plain text only.`,
-    );
-    const text = r.response.text().trim();
+    const r = await mistralChatComplete({
+      messages: [
+        {
+          role: "user",
+          content: `In 2 short sentences, clarify the correct reasoning for this question, building on: "${explanation.slice(0, 800)}". Question: "${question.slice(0, 400)}". Plain text only.`,
+        },
+      ],
+      temperature: 0.3,
+    });
+    const text = assistantText(r.choices[0]?.message).trim();
     return NextResponse.json({ text });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Generation failed";

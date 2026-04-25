@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 
-import { generateCurriculumFromFile } from "@/lib/gemini/curriculum";
+import { generateCurriculumFromFile } from "@/lib/mistral/curriculum";
 import { createClient } from "@/lib/supabase/server";
 
 const MAX_BYTES = 15 * 1024 * 1024;

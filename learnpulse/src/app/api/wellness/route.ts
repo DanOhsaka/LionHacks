@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { geminiFlash } from "@/lib/gemini/client";
+import { assistantText, mistralChatComplete } from "@/lib/mistral/client";
 import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
@@ -78,8 +78,11 @@ export async function GET() {
   let coachInsights = "";
   try {
     const prompt = `You are a supportive study coach. The student shared recent mood logs (1=low, 5=great):\n${moodSummary || "No logs yet."}\n\nWrite 2-4 short bullet insights (plain text lines starting with "- ") on patterns, encouragement, and one practical study habit. No medical claims.`;
-    const result = await geminiFlash.generateContent(prompt);
-    coachInsights = result.response.text().trim();
+    const result = await mistralChatComplete({
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.5,
+    });
+    coachInsights = assistantText(result.choices[0]?.message).trim();
   } catch {
     coachInsights =
       "- Log mood before sessions to spot patterns.\n- Short breaks between rounds help retention.\n- Celebrate small wins to stay motivated.";
