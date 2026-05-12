@@ -3,24 +3,63 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --bg: #070b14;
+  --panel: #0f172a;
+  --panel-2: #111827;
+  --text: #e5e7eb;
+  --muted: #94a3b8;
+  --ring: #22d3ee;
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(40rem 28rem at 85% -5%, rgba(34, 211, 238, 0.12), transparent 60%),
+    radial-gradient(38rem 24rem at 10% 110%, rgba(52, 211, 153, 0.1), transparent 60%),
+    var(--bg);
+  font-family: Inter, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #1f2937 transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background-color: #1f2937;
+}
+
+*::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
+::selection {
+  background: rgba(34, 211, 238, 0.25);
 }
 
 @layer utilities {
+  .app-panel {
+    @apply rounded-2xl border border-zinc-800/80 bg-zinc-900/55 shadow-lg shadow-black/20;
+  }
+
+  .app-section-title {
+    @apply text-lg font-semibold tracking-tight text-white;
+  }
+
+  .app-muted {
+    @apply text-sm text-zinc-400;
+  }
+
+  .focus-ring {
+    @apply outline-none ring-cyan-400/40 focus:ring-2 focus:ring-offset-0;
+  }
+
   .text-balance {
     text-wrap: balance;
   }

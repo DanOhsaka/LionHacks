@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 
+import {
+  chapterRollupFromMetadata,
+  mergeRollupIntoModuleStats,
+  normalizeModuleStats,
+} from "@/lib/module-confidence";
 import { createClient } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
@@ -138,6 +143,7 @@ export async function PATCH(request: Request) {
     duration_seconds,
     accuracy_pct,
     correct_count,
+    wrong_count,
     metadata,
   } = body as {
     session_id?: unknown;
@@ -145,6 +151,7 @@ export async function PATCH(request: Request) {
     duration_seconds?: unknown;
     accuracy_pct?: unknown;
     correct_count?: unknown;
+    wrong_count?: unknown;
     metadata?: unknown;
   };
 
@@ -171,6 +178,9 @@ export async function PATCH(request: Request) {
   if (typeof duration_seconds === "number") patch.duration_seconds = duration_seconds;
   if (typeof accuracy_pct === "number") patch.accuracy_pct = accuracy_pct;
   if (typeof correct_count === "number") patch.correct_count = correct_count;
+  if (typeof wrong_count === "number" && !Number.isNaN(wrong_count)) {
+    patch.wrong_count = wrong_count;
+  }
   if (metadata && typeof metadata === "object") {
     const prev =
       existing.metadata && typeof existing.metadata === "object"
@@ -185,10 +195,17 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
+  const sessionRollup =
+    metadata && typeof metadata === "object"
+      ? chapterRollupFromMetadata(metadata)
+      : null;
+
   if (existing.course_id) {
     const { data: courseRow } = await supabase
       .from("courses")
-      .select("completion_percent, total_time_seconds, current_streak, last_session_at")
+      .select(
+        "completion_percent, total_time_seconds, current_streak, last_session_at, module_stats",
+      )
       .eq("id", existing.course_id)
       .eq("user_id", user.id)
       .single();
@@ -226,6 +243,12 @@ export async function PATCH(request: Request) {
       newStreak = 1;
     }
 
+    const prevModuleStats = normalizeModuleStats(courseRow?.module_stats);
+    const nextModuleStats =
+      sessionRollup && sessionRollup.length > 0
+        ? mergeRollupIntoModuleStats(prevModuleStats, sessionRollup)
+        : prevModuleStats;
+
     await supabase
       .from("courses")
       .update({
@@ -234,6 +257,9 @@ export async function PATCH(request: Request) {
         current_streak: newStreak,
         last_session_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        ...(sessionRollup && sessionRollup.length > 0
+          ? { module_stats: nextModuleStats }
+          : {}),
       })
       .eq("id", existing.course_id)
       .eq("user_id", user.id);

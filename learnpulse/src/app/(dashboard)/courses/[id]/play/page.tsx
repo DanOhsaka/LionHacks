@@ -18,7 +18,7 @@ export default async function CoursePlayPage({ params }: Props) {
 
   const { data: course, error } = await supabase
     .from("courses")
-    .select("id")
+    .select("id,title")
     .eq("id", id)
     .eq("user_id", user.id)
     .single();
@@ -36,7 +36,11 @@ export default async function CoursePlayPage({ params }: Props) {
       <Suspense
         fallback={<p className="text-center text-zinc-500">Loading session…</p>}
       >
-        <CoursePlayClient courseId={id} rows={checkpoints ?? []} />
+        <CoursePlayClient
+          courseId={id}
+          courseTitle={course.title}
+          rows={checkpoints ?? []}
+        />
       </Suspense>
     </div>
   );

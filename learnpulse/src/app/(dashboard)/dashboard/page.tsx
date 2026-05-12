@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { LearnerGoalsCard } from "./learner-goals-card";
+import { Badge } from "@/components/ui/badge";
 import { computeStudyStreakUtc } from "@/lib/dashboard-stats";
 import { createClient } from "@/lib/supabase/server";
-import { ArrowRight, Sparkles, Upload } from "lucide-react";
+import { ArrowRight, BarChart3, Sparkles, Upload } from "lucide-react";
 
 export default async function DashboardPage() {
   const supabase = createClient();
@@ -53,12 +55,26 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-10">
-      <header>
-        <h1 className="text-3xl font-semibold tracking-tight text-white">Dashboard</h1>
+      <header className="app-panel rounded-3xl p-6">
+        <h1 className="bg-gradient-to-r from-emerald-300 via-cyan-300 to-fuchsia-300 bg-clip-text text-3xl font-semibold tracking-tight text-transparent">
+          Dashboard
+        </h1>
         <p className="mt-1 text-zinc-400">
           Your pulse on progress, time, and momentum.
         </p>
+        <div className="mt-3">
+          <Badge>Academic analytics workspace</Badge>
+        </div>
+        <Link
+          href="/dashboard/analytics"
+          className="mt-4 inline-flex items-center gap-2 rounded-xl border border-emerald-400/40 bg-gradient-to-r from-emerald-500/20 to-cyan-500/20 px-4 py-2 text-sm font-medium text-emerald-100 transition hover:-translate-y-[1px] hover:from-emerald-500/30 hover:to-cyan-500/30"
+        >
+          <BarChart3 className="h-4 w-4" />
+          Open analytics
+        </Link>
       </header>
+
+      <LearnerGoalsCard />
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Active courses" value={String(activeCourses.length || courseList.length)} />
@@ -67,10 +83,10 @@ export default async function DashboardPage() {
         <StatCard label="Current streak" value={`${streak}d`} highlight />
       </section>
 
-      <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
+      <section className="app-panel rounded-2xl p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/30 to-cyan-500/20 text-emerald-200">
               <Sparkles className="h-5 w-5" />
             </span>
             <div>
@@ -82,7 +98,7 @@ export default async function DashboardPage() {
           </div>
           <Link
             href="/upload"
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-medium text-emerald-950 transition hover:bg-emerald-400"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-400 to-cyan-300 px-4 py-2.5 text-sm font-medium text-zinc-900 transition hover:-translate-y-[1px] hover:from-emerald-300 hover:to-cyan-200"
           >
             <Upload className="h-4 w-4" />
             Upload
@@ -91,18 +107,18 @@ export default async function DashboardPage() {
       </section>
 
       <section>
-        <h2 className="mb-4 text-lg font-medium text-white">Active subjects</h2>
+        <h2 className="app-section-title mb-4">Active subjects</h2>
         {activeCourses.length === 0 && courseList.length === 0 ? (
           <p className="rounded-xl border border-dashed border-zinc-700 bg-zinc-900/30 px-4 py-8 text-center text-sm text-zinc-500">
             No courses yet. Upload your first deck to get started.
           </p>
         ) : (
-          <ul className="space-y-2">
+          <ul className="space-y-3">
             {(activeCourses.length ? activeCourses : courseList.slice(0, 6)).map((c) => (
               <li key={c.id}>
                 <Link
                   href={`/courses/${c.id}`}
-                  className="flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900/30 px-4 py-3 transition hover:border-emerald-500/40 hover:bg-zinc-900/60"
+                  className="group flex items-center justify-between rounded-xl border border-zinc-800/80 bg-zinc-900/40 px-4 py-3 transition-all hover:-translate-y-[1px] hover:border-cyan-400/40 hover:bg-zinc-900/70"
                 >
                   <div>
                     <p className="font-medium text-white">{c.title}</p>
@@ -110,7 +126,7 @@ export default async function DashboardPage() {
                   </div>
                   <div className="flex items-center gap-2 text-sm text-zinc-400">
                     <span>{Math.round(Number(c.completion_percent ?? 0))}%</span>
-                    <ArrowRight className="h-4 w-4" />
+                    <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5 group-hover:text-cyan-300" />
                   </div>
                 </Link>
               </li>
@@ -120,18 +136,18 @@ export default async function DashboardPage() {
       </section>
 
       <section>
-        <h2 className="mb-4 text-lg font-medium text-white">Recent sessions</h2>
+        <h2 className="app-section-title mb-4">Recent sessions</h2>
         {!sessions?.length ? (
           <p className="text-sm text-zinc-500">No sessions yet. Start a game from a course.</p>
         ) : (
-          <ul className="divide-y divide-zinc-800 rounded-xl border border-zinc-800 bg-zinc-900/30">
+          <ul className="divide-y divide-zinc-800 rounded-xl border border-zinc-800/80 bg-zinc-900/40">
             {sessions.map((s) => {
               const title =
                 (s.courses as { title?: string } | null)?.title ?? "Course";
               return (
                 <li
                   key={s.id}
-                  className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm"
+                  className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm transition hover:bg-zinc-800/40"
                 >
                   <div>
                     <p className="text-white">{title}</p>
@@ -164,16 +180,24 @@ function StatCard({
   value: string;
   highlight?: boolean;
 }) {
+  const numeric = Number.parseFloat(value.replace(/[^\d.]/g, ""));
+  const progress = Number.isFinite(numeric) ? Math.max(8, Math.min(100, numeric)) : 20;
   return (
     <div
-      className={`rounded-2xl border p-4 ${
+      className={`rounded-2xl border p-4 shadow-lg transition hover:-translate-y-[1px] ${
         highlight
-          ? "border-emerald-500/40 bg-emerald-500/10"
-          : "border-zinc-800 bg-zinc-900/40"
+          ? "border-emerald-500/50 bg-gradient-to-br from-emerald-500/20 to-cyan-500/10 shadow-emerald-900/20"
+          : "border-zinc-800/80 bg-zinc-900/50 shadow-black/20"
       }`}
     >
       <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">{label}</p>
       <p className="mt-1 text-2xl font-semibold text-white">{value}</p>
+      <div className="mt-3 h-1.5 rounded-full bg-zinc-800">
+        <div
+          className={`h-full rounded-full ${highlight ? "bg-emerald-300" : "bg-cyan-300/80"}`}
+          style={{ width: `${progress}%` }}
+        />
+      </div>
     </div>
   );
 }

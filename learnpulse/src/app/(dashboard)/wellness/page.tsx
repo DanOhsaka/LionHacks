@@ -109,7 +109,9 @@ export default function WellnessPage() {
   );
   const [input, setInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const stickToBottomRef = useRef(true);
 
   const chartPoints = useMemo(() => buildDailyChartData(logs), [logs]);
   const segmentRows = useMemo(() => buildSegmentChartRows(chartPoints), [chartPoints]);
@@ -143,8 +145,10 @@ export default function WellnessPage() {
   }, [introTyped, introDone]);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatMessages, chatLoading, introTyped, introDone]);
+    const scroller = chatScrollRef.current;
+    if (!scroller || !stickToBottomRef.current) return;
+    chatEndRef.current?.scrollIntoView({ behavior: "auto", block: "end" });
+  }, [chatMessages, chatLoading, introDone]);
 
   async function logMood(value: number) {
     setSelectedMood(value);
@@ -215,17 +219,19 @@ export default function WellnessPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-8 pb-24">
-      <header>
-        <h1 className="text-3xl font-semibold tracking-tight text-white">Wellness with Roomie</h1>
+      <header className="app-panel rounded-3xl p-6">
+        <h1 className="bg-gradient-to-r from-emerald-200 via-cyan-200 to-fuchsia-200 bg-clip-text text-3xl font-semibold tracking-tight text-transparent">
+          Wellness with Roomie
+        </h1>
         <p className="mt-1 text-sm text-zinc-400">
           Log how you feel, chat with Roomie, and see your mood trend.
         </p>
       </header>
 
       {/* Section 1 — Mood log */}
-      <section className="rounded-2xl bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-gray-900">Mood log</h2>
-        <p className="mt-1 text-sm text-gray-500">Tap how you feel right now.</p>
+      <section className="app-panel rounded-2xl p-6">
+        <h2 className="app-section-title">Mood log</h2>
+        <p className="app-muted mt-1">Tap how you feel right now.</p>
         <div className="mt-4 flex flex-wrap justify-center gap-3 sm:justify-between">
           {MOODS.map(({ value, emoji, label }) => {
             const selected = selectedMood === value;
@@ -237,8 +243,8 @@ export default function WellnessPage() {
                 onClick={() => void logMood(value)}
                 className={`flex min-w-[5.5rem] flex-col items-center gap-1 rounded-xl border-2 px-3 py-3 text-sm transition ${
                   selected
-                    ? "border-green-600 bg-green-50 text-green-900"
-                    : "border-transparent bg-gray-50 text-gray-800 hover:border-green-200"
+                    ? "border-emerald-400/70 bg-emerald-500/20 text-emerald-100"
+                    : "border-zinc-700/70 bg-zinc-900/70 text-zinc-200 hover:border-cyan-400/40"
                 } disabled:opacity-60`}
               >
                 <span className="text-2xl">{emoji}</span>
@@ -250,31 +256,36 @@ export default function WellnessPage() {
       </section>
 
       {/* Section 2 — Roomie chat */}
-      <section className="rounded-2xl bg-white p-6 shadow-sm">
+      <section className="app-panel rounded-2xl p-6">
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <motion.div
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-green-400 to-green-600 text-2xl"
-              animate={{ opacity: [1, 0.4, 1] }}
-              transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
-            >
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-green-400 to-green-600 text-2xl">
               🦁
-            </motion.div>
+            </div>
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">Roomie</h2>
-              <p className="text-sm text-gray-500">Your wellness coach</p>
+              <h2 className="text-lg font-semibold text-white">Roomie</h2>
+              <p className="text-sm text-zinc-400">Your wellness coach</p>
             </div>
           </div>
-          <span className="shrink-0 self-end text-xs text-gray-400">✨ Powered by Gemini</span>
+          <span className="shrink-0 self-end text-xs text-zinc-500">✨ Powered by Gemini</span>
         </div>
 
-        <div className="mt-6 flex max-h-[min(420px,50vh)] flex-col gap-3 overflow-y-auto rounded-xl bg-gray-50/80 p-4">
+        <div
+          ref={chatScrollRef}
+          onScroll={(e) => {
+            const el = e.currentTarget;
+            const distanceFromBottom =
+              el.scrollHeight - el.scrollTop - el.clientHeight;
+            stickToBottomRef.current = distanceFromBottom < 24;
+          }}
+          className="mt-6 flex max-h-[min(420px,50vh)] flex-col gap-3 overflow-y-auto rounded-xl bg-zinc-950/60 p-4"
+        >
           {!introDone && (
             <div className="flex justify-start">
-              <div className="max-w-[85%] rounded-2xl rounded-bl-md bg-green-100 px-4 py-3 text-sm text-green-900">
+              <div className="max-w-[85%] rounded-2xl rounded-bl-md bg-emerald-500/20 px-4 py-3 text-sm text-emerald-100">
                 {introTyped}
                 {introTyped.length < INTRO_TEXT.length && (
-                  <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-green-700 align-middle" />
+                  <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-emerald-300 align-middle" />
                 )}
               </div>
             </div>
@@ -289,8 +300,8 @@ export default function WellnessPage() {
                 <div
                   className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${
                     m.role === "assistant"
-                      ? "rounded-bl-md bg-green-100 text-green-900"
-                      : "rounded-br-md bg-gray-100 text-gray-900"
+                      ? "rounded-bl-md bg-emerald-500/20 text-emerald-100"
+                      : "rounded-br-md bg-zinc-800 text-zinc-100"
                   }`}
                 >
                   {m.content}
@@ -300,15 +311,15 @@ export default function WellnessPage() {
 
           {chatLoading && (
             <div className="flex justify-start">
-              <div className="flex items-center gap-1 rounded-2xl rounded-bl-md bg-green-100 px-4 py-3">
+              <div className="flex items-center gap-1 rounded-2xl rounded-bl-md bg-emerald-500/20 px-4 py-3">
                 {[0, 1, 2].map((d) => (
                   <motion.span
                     key={d}
-                    className="h-2 w-2 rounded-full bg-green-600"
+                    className="h-2 w-2 rounded-full bg-emerald-300"
                     animate={{ y: [0, -5, 0], opacity: [0.4, 1, 0.4] }}
                     transition={{
-                      duration: 0.9,
-                      repeat: Infinity,
+                      duration: 0.75,
+                      repeat: 8,
                       delay: d * 0.15,
                       ease: "easeInOut",
                     }}
@@ -333,13 +344,13 @@ export default function WellnessPage() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Tell Roomie how you're feeling…"
-              className="min-w-0 flex-1 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 outline-none ring-green-500/30 placeholder:text-gray-400 focus:border-green-500 focus:ring-2"
+              className="focus-ring min-w-0 flex-1 rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-400"
               disabled={chatLoading}
             />
             <button
               type="submit"
               disabled={chatLoading || !input.trim()}
-              className="shrink-0 rounded-xl bg-green-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-green-500 disabled:opacity-50"
+              className="shrink-0 rounded-xl bg-gradient-to-r from-emerald-400 to-cyan-300 px-4 py-2.5 text-sm font-medium text-zinc-900 transition hover:from-emerald-300 hover:to-cyan-200 disabled:opacity-50"
             >
               Send
             </button>
@@ -348,12 +359,12 @@ export default function WellnessPage() {
       </section>
 
       {/* Section 3 — Mood trend */}
-      <section className="rounded-2xl bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-gray-900">Mood trend</h2>
-        <p className="mt-1 text-sm text-gray-500">Last 14 days (daily average when you log multiple times).</p>
+      <section className="app-panel rounded-2xl p-6">
+        <h2 className="app-section-title">Mood trend</h2>
+        <p className="app-muted mt-1">Last 14 days (daily average when you log multiple times).</p>
 
         {chartPoints.length === 0 ? (
-          <p className="mt-8 rounded-xl border border-dashed border-gray-200 bg-gray-50 py-10 text-center text-sm text-gray-600">
+          <p className="mt-8 rounded-xl border border-dashed border-zinc-700 bg-zinc-900/50 py-10 text-center text-sm text-zinc-500">
             No mood data yet. Log your first mood above!
           </p>
         ) : (
@@ -361,13 +372,15 @@ export default function WellnessPage() {
             <div className="mt-6 h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={segmentRows} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#6b7280" }} />
-                  <YAxis domain={[1, 5]} ticks={[1, 2, 3, 4, 5]} tick={{ fontSize: 11, fill: "#6b7280" }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#94a3b8" }} />
+                  <YAxis domain={[1, 5]} ticks={[1, 2, 3, 4, 5]} tick={{ fontSize: 11, fill: "#94a3b8" }} />
                   <Tooltip
                     contentStyle={{
                       borderRadius: "12px",
-                      border: "1px solid #e5e7eb",
+                      border: "1px solid #334155",
+                      background: "#0f172a",
+                      color: "#e5e7eb",
                       fontSize: "12px",
                     }}
                     formatter={(v) => [v ?? "—", "Mood"]}
@@ -398,7 +411,7 @@ export default function WellnessPage() {
                 </LineChart>
               </ResponsiveContainer>
             </div>
-            <div className="mt-4 flex flex-wrap items-center justify-center gap-6 text-sm text-gray-600">
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-6 text-sm text-zinc-400">
               <span>
                 <span className="mr-1.5 text-red-500">🔴</span>
                 Bad (1–2)

@@ -42,9 +42,11 @@ function mapCheckpoints(rows: Row[]): GameCheckpoint[] {
 
 export default function CoursePlayClient({
   courseId,
+  courseTitle,
   rows,
 }: {
   courseId: string;
+  courseTitle: string;
   rows: Row[];
 }) {
   const searchParams = useSearchParams();
@@ -137,6 +139,7 @@ export default function CoursePlayClient({
             checkpoints={checkpoints}
             mode={mode}
             courseId={courseId}
+            courseTitle={courseTitle}
             sessionId={sessionId}
           />
           <WellnessCoach active />

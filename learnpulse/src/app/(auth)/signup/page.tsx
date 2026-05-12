@@ -6,6 +6,9 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+
 export default function SignupPage() {
   const router = useRouter();
   const [username, setUsername] = useState("");
@@ -21,7 +24,18 @@ export default function SignupPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: username.trim(), password }),
       });
-      const data = (await res.json()) as { error?: string };
+      const raw = await res.text();
+      let data: { error?: string };
+      try {
+        data = JSON.parse(raw) as { error?: string };
+      } catch {
+        toast.error(
+          res.status >= 500
+            ? "Server error — check the terminal or .env.local"
+            : "Could not read server response",
+        );
+        return;
+      }
       if (!res.ok) {
         toast.error(data.error ?? "Could not create account");
         return;
@@ -40,13 +54,13 @@ export default function SignupPage() {
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-8 shadow-xl backdrop-blur"
+      className="app-panel rounded-2xl p-8"
     >
       <h1 className="text-center text-2xl font-semibold tracking-tight text-white">
         Create account
       </h1>
       <p className="mt-1 text-center text-sm text-zinc-400">
-        PridePath — study as a game
+        Create your academic workspace in minutes
       </p>
       <form onSubmit={onSubmit} className="mt-8 space-y-4">
         <div>
@@ -56,11 +70,11 @@ export default function SignupPage() {
           >
             Username
           </label>
-          <input
+          <Input
             id="username"
             name="username"
             autoComplete="username"
-            className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white outline-none ring-emerald-500/50 placeholder:text-zinc-600 focus:border-emerald-500 focus:ring-2"
+            className="mt-1"
             placeholder="Choose a username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
@@ -75,12 +89,12 @@ export default function SignupPage() {
           >
             Password
           </label>
-          <input
+          <Input
             id="password"
             name="password"
             type="password"
             autoComplete="new-password"
-            className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white outline-none ring-emerald-500/50 focus:border-emerald-500 focus:ring-2"
+            className="mt-1"
             placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -88,13 +102,13 @@ export default function SignupPage() {
             minLength={6}
           />
         </div>
-        <button
+        <Button
           type="submit"
           disabled={loading}
-          className="w-full rounded-lg bg-emerald-500 py-2.5 text-sm font-medium text-emerald-950 transition hover:bg-emerald-400 disabled:opacity-50"
+          className="w-full"
         >
           {loading ? "Creating…" : "Sign up"}
-        </button>
+        </Button>
       </form>
       <p className="mt-6 text-center text-sm text-zinc-500">
         Already have an account?{" "}

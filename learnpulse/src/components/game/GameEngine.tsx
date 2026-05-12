@@ -6,37 +6,33 @@ import { toast } from "sonner";
 
 import type { GameCheckpoint, GameMode } from "@/stores/sessionStore";
 import { useSessionStore } from "@/stores/sessionStore";
+import {
+  computeDataQuality,
+  rollupByChapter,
+  structuredWhyMissed,
+  weakCheckpointIds,
+  type QuestionEvent,
+  type SessionAnalyticsV1,
+} from "@/lib/session-analytics";
+
+import { SessionRecapPanel, type SessionRecapModel } from "./SessionRecapPanel";
 
 const SPEED_SECONDS = 22;
-
-async function enrichWrongExplanation(
-  question: string,
-  materialExplanation: string,
-) {
-  try {
-    const res = await fetch("/api/gemini/explain", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question, explanation: materialExplanation }),
-    });
-    const data = (await res.json()) as { text?: string; error?: string };
-    if (!res.ok) return materialExplanation;
-    return data.text?.trim() || materialExplanation;
-  } catch {
-    return materialExplanation;
-  }
-}
+const FEEDBACK_CORRECT_MS = 2000;
+const FEEDBACK_WRONG_MS = 4200;
 
 export function GameEngine({
   checkpoints,
   mode,
   courseId,
   sessionId,
+  courseTitle = "Course",
 }: {
   checkpoints: GameCheckpoint[];
   mode: GameMode;
   courseId: string;
   sessionId: string;
+  courseTitle?: string;
 }) {
   const {
     currentIndex,
@@ -47,16 +43,22 @@ export function GameEngine({
     recordCorrect,
     recordWrong,
     nextQuestion,
+    navigateCheckpoint,
+    appendQuestionEvent,
+    incrementBrowseSkips,
     advanceNarrative,
     resetGame,
   } = useSessionStore();
 
   const [selected, setSelected] = useState<number | null>(null);
   const [phase, setPhase] = useState<"idle" | "correct" | "wrong" | "done">("idle");
-  const [extraExplanation, setExtraExplanation] = useState<string | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(SPEED_SECONDS);
   const [comebackEligible, setComebackEligible] = useState(false);
   const [final, setFinal] = useState<{ score: number; accuracy: number } | null>(null);
+  const [recap, setRecap] = useState<SessionRecapModel | null>(null);
+
+  const feedbackTimeoutRef = useRef<number | null>(null);
+  const questionStartedAtRef = useRef(Date.now());
 
   const total = checkpoints.length;
   const cp = checkpoints[currentIndex];
@@ -66,6 +68,13 @@ export function GameEngine({
     const mult = 1 + Math.min(combo, 8) * 0.12;
     return Math.round(100 * mult);
   }, [combo]);
+
+  const cpId = cp?.id;
+  useEffect(() => {
+    if (phase === "idle" && cpId) {
+      questionStartedAtRef.current = Date.now();
+    }
+  }, [phase, currentIndex, cpId]);
 
   const finishSession = useCallback(async () => {
     const st = useSessionStore.getState();
@@ -78,7 +87,31 @@ export function GameEngine({
     const accuracy =
       answered === 0 ? 0 : Math.round((cc / answered) * 1000) / 10;
 
-    const metadata: Record<string, unknown> = {};
+    const events = st.questionEvents as QuestionEvent[];
+    const timeoutCount = events.filter((e) => e.outcome === "timeout").length;
+    const chapterRollup = rollupByChapter(events);
+    const weakIds = weakCheckpointIds(events);
+    const dataQuality = computeDataQuality({
+      durationSeconds,
+      answeredCount: answered,
+      browseSkips: st.browseSkips,
+      checkpointTotal: st.checkpoints.length,
+    });
+
+    const analytics: SessionAnalyticsV1 = {
+      version: 1,
+      mode: st.mode ?? "zen",
+      speed_seconds: st.mode === "speed" ? SPEED_SECONDS : null,
+      events,
+      browse_skips: st.browseSkips,
+      chapter_rollup: chapterRollup,
+      wrong_count: wc,
+      timeout_count: timeoutCount,
+      weak_checkpoint_ids: weakIds,
+      data_quality: dataQuality,
+    };
+
+    const metadata: Record<string, unknown> = { analytics };
     if (comebackEligible && st.maxWrongStreak >= 5 && accuracy >= 60) {
       metadata.comeback_kid = true;
     }
@@ -86,6 +119,15 @@ export function GameEngine({
     setFinal({
       score: st.score,
       accuracy: answered === 0 ? 0 : Math.round((cc / answered) * 100),
+    });
+    setRecap({
+      sessionId,
+      courseId,
+      courseTitle,
+      score: st.score,
+      accuracy: answered === 0 ? 0 : Math.round((cc / answered) * 100),
+      durationSeconds,
+      analytics,
     });
     setPhase("done");
 
@@ -99,6 +141,7 @@ export function GameEngine({
           duration_seconds: durationSeconds,
           accuracy_pct: accuracy,
           correct_count: cc,
+          wrong_count: wc,
           metadata,
         }),
       });
@@ -108,7 +151,25 @@ export function GameEngine({
     }
 
     resetGame();
-  }, [sessionId, resetGame, comebackEligible]);
+  }, [sessionId, resetGame, comebackEligible, courseTitle, courseId]);
+
+  const goNextOrFinish = useCallback(() => {
+    if (feedbackTimeoutRef.current !== null) {
+      window.clearTimeout(feedbackTimeoutRef.current);
+      feedbackTimeoutRef.current = null;
+    }
+    setSelected(null);
+    const st = useSessionStore.getState();
+    const idx = st.currentIndex;
+    const len = st.checkpoints.length;
+    const isLast = len === 0 || idx >= len - 1;
+    if (isLast) {
+      void finishSession();
+    } else {
+      nextQuestion();
+      setPhase("idle");
+    }
+  }, [finishSession, nextQuestion]);
 
   const handleAnswerRef = useRef<
     (index: number, timedOut?: boolean) => Promise<void>
@@ -122,32 +183,50 @@ export function GameEngine({
       const isCorrect = !timedOut && index === cp.correct_index;
       setSelected(index === -1 ? null : index);
 
-      const isLast = currentIndex >= total - 1;
+      if (feedbackTimeoutRef.current !== null) {
+        window.clearTimeout(feedbackTimeoutRef.current);
+        feedbackTimeoutRef.current = null;
+      }
 
-      const goNextOrFinish = () => {
-        setSelected(null);
-        setExtraExplanation(null);
-        if (isLast) {
-          void finishSession();
-        } else {
-          nextQuestion();
-          setPhase("idle");
-        }
-      };
+      const msSpent = Math.min(
+        600_000,
+        Math.max(0, Date.now() - questionStartedAtRef.current),
+      );
 
       if (isCorrect) {
         setPhase("correct");
         recordCorrect(basePoints);
         if (maxWrongStreak >= 5) setComebackEligible(true);
         if (mode === "story") advanceNarrative();
-        setTimeout(goNextOrFinish, 900);
+        const stAfter = useSessionStore.getState();
+        appendQuestionEvent({
+          checkpoint_id: cp.id,
+          chapter_title: cp.chapter_title,
+          chapter_index: cp.chapter_index,
+          outcome: "correct",
+          ms_spent: msSpent,
+          combo_after: stAfter.combo,
+        });
+        feedbackTimeoutRef.current = window.setTimeout(
+          goNextOrFinish,
+          FEEDBACK_CORRECT_MS,
+        );
       } else {
         setPhase("wrong");
         recordWrong();
-        const base = cp.explanation || "Review the material and try again.";
-        const enriched = await enrichWrongExplanation(cp.question, base);
-        setExtraExplanation(enriched);
-        setTimeout(goNextOrFinish, 2200);
+        const stAfter = useSessionStore.getState();
+        appendQuestionEvent({
+          checkpoint_id: cp.id,
+          chapter_title: cp.chapter_title,
+          chapter_index: cp.chapter_index,
+          outcome: timedOut ? "timeout" : "wrong",
+          ms_spent: msSpent,
+          combo_after: stAfter.combo,
+        });
+        feedbackTimeoutRef.current = window.setTimeout(
+          goNextOrFinish,
+          FEEDBACK_WRONG_MS,
+        );
       }
     },
     [
@@ -156,18 +235,56 @@ export function GameEngine({
       selected,
       recordCorrect,
       recordWrong,
+      appendQuestionEvent,
       basePoints,
       mode,
       advanceNarrative,
-      currentIndex,
-      total,
-      nextQuestion,
-      finishSession,
+      goNextOrFinish,
       maxWrongStreak,
     ],
   );
 
   handleAnswerRef.current = handleAnswer;
+
+  const onEdgeTap = useCallback(
+    (side: "left" | "right") => {
+      if (phase === "done") return;
+      if (phase === "correct" || phase === "wrong") {
+        if (side === "right") goNextOrFinish();
+        return;
+      }
+      if (phase !== "idle") return;
+      if (feedbackTimeoutRef.current !== null) {
+        window.clearTimeout(feedbackTimeoutRef.current);
+        feedbackTimeoutRef.current = null;
+      }
+      if (side === "left" && currentIndex > 0) {
+        incrementBrowseSkips();
+        navigateCheckpoint(-1);
+        setSelected(null);
+      } else if (side === "right" && currentIndex < total - 1) {
+        incrementBrowseSkips();
+        navigateCheckpoint(1);
+        setSelected(null);
+      }
+    },
+    [
+      phase,
+      currentIndex,
+      total,
+      goNextOrFinish,
+      navigateCheckpoint,
+      incrementBrowseSkips,
+    ],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (feedbackTimeoutRef.current !== null) {
+        window.clearTimeout(feedbackTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (mode !== "speed" || phase !== "idle" || !cp) return;
@@ -187,6 +304,22 @@ export function GameEngine({
       window.clearInterval(id);
     };
   }, [mode, phase, cp, currentIndex]);
+
+  if (phase === "done" && final && recap) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.98 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="mx-auto max-w-2xl rounded-2xl border border-emerald-500/30 bg-zinc-900/50 p-6 sm:p-8"
+      >
+        <h2 className="text-center text-2xl font-semibold text-white">Session complete</h2>
+        <p className="mt-1 text-center text-sm text-emerald-200/90">
+          Score {final.score} · {final.accuracy}% accuracy
+        </p>
+        <SessionRecapPanel recap={recap} />
+      </motion.div>
+    );
+  }
 
   if (phase === "done" && final) {
     return (
@@ -216,9 +349,36 @@ export function GameEngine({
     );
   }
 
+  const correctLetter = String.fromCharCode(65 + cp.correct_index);
+  const correctText = cp.options[cp.correct_index] ?? "";
+  const isTimeoutWrong = phase === "wrong" && selected === null;
+  const pickedLabel =
+    selected != null && cp.options[selected] != null
+      ? `${String.fromCharCode(65 + selected)}. ${cp.options[selected]}`
+      : null;
+  const why = structuredWhyMissed(
+    isTimeoutWrong
+      ? "The timer ran out — next pass, eliminate one unlikely option early."
+      : cp.explanation,
+    pickedLabel,
+  );
+
   return (
-    <div className="relative mx-auto max-w-2xl space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-zinc-400">
+    <div className="relative mx-auto min-h-[min(100dvh,52rem)] max-w-2xl space-y-6 pb-8">
+      <button
+        type="button"
+        aria-label="Previous question"
+        className="absolute bottom-0 left-0 top-0 z-20 w-[clamp(2.5rem,16vw,7rem)] cursor-pointer border-0 bg-transparent p-0"
+        onClick={() => onEdgeTap("left")}
+      />
+      <button
+        type="button"
+        aria-label="Next question or continue"
+        className="absolute bottom-0 right-0 top-0 z-20 w-[clamp(2.5rem,16vw,7rem)] cursor-pointer border-0 bg-transparent p-0"
+        onClick={() => onEdgeTap("right")}
+      />
+
+      <div className="relative z-10 flex flex-wrap items-center justify-between gap-3 text-sm text-zinc-400">
         <span>
           Question {Math.min(currentIndex + 1, total)} / {total}
         </span>
@@ -243,7 +403,7 @@ export function GameEngine({
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="rounded-xl border border-violet-500/30 bg-violet-500/10 px-4 py-3 text-sm text-violet-100"
+            className="relative z-10 rounded-xl border border-violet-500/30 bg-violet-500/10 px-4 py-3 text-sm text-violet-100"
           >
             Next chapter: <strong>{chapterTitle}</strong> — the path opens as you learn.
           </motion.p>
@@ -254,14 +414,16 @@ export function GameEngine({
         key={cp.id}
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6 shadow-xl"
+        className="relative z-10 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6 shadow-xl"
       >
         <p className="text-lg font-medium leading-relaxed text-white">{cp.question}</p>
         <div className="mt-6 grid gap-3 sm:grid-cols-2">
           {cp.options.map((opt, i) => {
             const isSel = selected === i;
-            const showCorrect = phase !== "idle" && i === cp.correct_index;
+            const showCorrectHighlight =
+              phase === "correct" && i === cp.correct_index;
             const showWrong = phase === "wrong" && isSel && i !== cp.correct_index;
+            const fadedWrongPhase = phase === "wrong" && !showWrong;
             return (
               <motion.button
                 key={i}
@@ -269,11 +431,13 @@ export function GameEngine({
                 disabled={phase !== "idle"}
                 onClick={() => void handleAnswer(i)}
                 className={`rounded-xl border px-4 py-3 text-left text-sm transition ${
-                  showCorrect
+                  showCorrectHighlight
                     ? "border-emerald-500 bg-emerald-500/20 text-emerald-50"
                     : showWrong
                       ? "border-rose-500/60 bg-rose-500/15 text-rose-100"
-                      : "border-zinc-700 bg-zinc-950/60 text-zinc-200 hover:border-emerald-500/40"
+                      : fadedWrongPhase
+                        ? "border-zinc-800/80 bg-zinc-950/30 text-zinc-500"
+                        : "border-zinc-700 bg-zinc-950/60 text-zinc-200 hover:border-emerald-500/40"
                 }`}
                 whileTap={{ scale: 0.98 }}
               >
@@ -293,7 +457,7 @@ export function GameEngine({
             initial={{ scale: 0.5, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="pointer-events-none fixed inset-0 flex items-center justify-center"
+            className="pointer-events-none fixed inset-0 z-[5] flex items-center justify-center"
           >
             <motion.div
               className="h-40 w-40 rounded-full bg-emerald-400/30 blur-2xl"
@@ -307,16 +471,32 @@ export function GameEngine({
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="rounded-xl border border-rose-500/30 bg-rose-950/40 px-4 py-3 text-sm text-rose-50"
+            className="relative z-10 space-y-3"
           >
-            <p className="font-medium">Let us unpack that</p>
-            <p className="mt-1 text-rose-100/90">{extraExplanation ?? cp.explanation}</p>
+            <div className="rounded-xl border border-zinc-600/80 bg-zinc-800/60 px-4 py-3 text-sm text-zinc-100">
+              <p className="font-medium text-zinc-200">Correct answer</p>
+              <p className="mt-1 text-base text-white">
+                {correctLetter}. {correctText}
+              </p>
+            </div>
+            <div className="rounded-xl border border-zinc-700/80 bg-zinc-900/70 px-4 py-3 text-sm text-zinc-200">
+              <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                Why this tripped you up
+              </p>
+              <p className="mt-2 leading-relaxed text-zinc-200">{why.summary}</p>
+              {why.concept && (
+                <p className="mt-2 text-xs leading-relaxed text-zinc-400">
+                  <span className="font-medium text-zinc-500">Deeper note: </span>
+                  {why.concept}
+                </p>
+              )}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
 
       {combo > 1 && phase === "idle" && (
-        <p className="text-center text-xs font-medium uppercase tracking-wide text-amber-300">
+        <p className="relative z-10 text-center text-xs font-medium uppercase tracking-wide text-amber-300">
           {combo}x combo — next correct worth more
         </p>
       )}

@@ -44,8 +44,10 @@ export default function UploadPage() {
 
   return (
     <div className="mx-auto max-w-lg space-y-8">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight text-white">Upload material</h1>
+      <div className="app-panel rounded-3xl p-6">
+        <h1 className="bg-gradient-to-r from-emerald-200 via-cyan-200 to-fuchsia-200 bg-clip-text text-3xl font-semibold tracking-tight text-transparent">
+          Upload material
+        </h1>
         <p className="mt-1 text-sm text-zinc-400">
           PDF, Word, PowerPoint, or plain text. Gemini builds chapters and quiz checkpoints.
         </p>
@@ -54,7 +56,7 @@ export default function UploadPage() {
         initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
         onSubmit={(e) => void onSubmit(e)}
-        className="space-y-6 rounded-2xl border border-zinc-800 bg-zinc-900/50 p-6"
+        className="app-panel space-y-6 rounded-2xl p-6"
       >
         <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-zinc-600 bg-zinc-950/60 px-6 py-12 text-center hover:border-emerald-500/50">
           <UploadCloud className="h-10 w-10 text-emerald-400" />

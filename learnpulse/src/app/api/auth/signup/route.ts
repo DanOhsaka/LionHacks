@@ -1,3 +1,4 @@
+import { createClient } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/route-handler";
@@ -64,10 +65,30 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { error: profileError } = await supabase.from("profiles").insert({
-    id: authData.user.id,
-    username: username.trim(),
-  });
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+
+  let profileError: { message: string } | null = null;
+  if (supabaseUrl && serviceKey) {
+    const admin = createClient(supabaseUrl, serviceKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+    });
+    const { error } = await admin.from("profiles").insert({
+      id: authData.user.id,
+      username: username.trim(),
+    });
+    profileError = error;
+  } else {
+    const { error } = await supabase.from("profiles").insert({
+      id: authData.user.id,
+      username: username.trim(),
+    });
+    profileError = error;
+  }
 
   if (profileError) {
     return NextResponse.json({ error: profileError.message }, { status: 400 });
@@ -75,7 +96,6 @@ export async function POST(request: NextRequest) {
 
   const res = NextResponse.json({
     user: { id: authData.user.id, username: username.trim() },
-    session: authData.session,
   });
   return applyAuthCookies(res);
 }

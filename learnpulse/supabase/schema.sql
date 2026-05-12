@@ -7,6 +7,7 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   username text not null unique,
   break_reminders_enabled boolean not null default true,
+  goals jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
 
@@ -20,6 +21,7 @@ create table if not exists public.courses (
   last_session_at timestamptz,
   current_streak int not null default 0,
   total_time_seconds bigint not null default 0,
+  module_stats jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -48,6 +50,7 @@ create table if not exists public.sessions (
   duration_seconds int,
   checkpoints_total int default 0,
   correct_count int default 0,
+  wrong_count int default 0,
   started_at timestamptz not null default now(),
   ended_at timestamptz,
   metadata jsonb not null default '{}'::jsonb

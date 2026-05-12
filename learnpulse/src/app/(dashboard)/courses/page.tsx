@@ -95,9 +95,11 @@ export default function CoursesPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="app-panel flex flex-col gap-4 rounded-3xl p-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight text-white">Course library</h1>
+          <h1 className="bg-gradient-to-r from-emerald-200 via-cyan-200 to-fuchsia-200 bg-clip-text text-3xl font-semibold tracking-tight text-transparent">
+            Course library
+          </h1>
           <p className="mt-1 text-zinc-400">Everything you have uploaded, ready to play.</p>
         </div>
         <Link
@@ -117,10 +119,11 @@ export default function CoursesPage() {
           {list.map((c) => (
             <article
               key={c.id}
-              className="flex flex-col rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 shadow-lg transition hover:border-emerald-500/30"
+              className="group app-panel relative flex flex-col overflow-hidden rounded-2xl p-5 transition hover:-translate-y-1 hover:border-cyan-400/40"
             >
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-cyan-500/10 via-emerald-500/5 to-fuchsia-500/10 opacity-0 transition duration-150 group-hover:opacity-100" />
               <div className="flex items-start gap-3">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-zinc-800 text-emerald-400">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-zinc-800 text-emerald-400 shadow-lg shadow-black/20 transition group-hover:scale-105">
                   <BookOpen className="h-5 w-5" />
                 </span>
                 <div className="min-w-0 flex-1">
@@ -132,6 +135,12 @@ export default function CoursesPage() {
                 <div>
                   <dt className="text-xs uppercase tracking-wide text-zinc-500">Completion</dt>
                   <dd className="font-medium text-white">{Math.round(Number(c.completion_percent ?? 0))}%</dd>
+                  <div className="mt-1.5 h-1.5 rounded-full bg-zinc-800">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-emerald-300 to-cyan-300"
+                      style={{ width: `${Math.max(6, Math.min(100, Number(c.completion_percent ?? 0)))}%` }}
+                    />
+                  </div>
                 </div>
                 <div>
                   <dt className="text-xs uppercase tracking-wide text-zinc-500">Streak</dt>
@@ -150,7 +159,7 @@ export default function CoursesPage() {
               <div className="mt-5 flex gap-2">
                 <Link
                   href={`/courses/${c.id}/play?mode=zen`}
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-500 py-2 text-sm font-medium text-emerald-950 hover:bg-emerald-400"
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-500 py-2 text-sm font-medium text-emerald-950 transition hover:bg-emerald-400 group-hover:shadow-[0_0_0_1px_rgba(45,212,191,0.35)]"
                 >
                   <Play className="h-4 w-4" />
                   New session
@@ -165,7 +174,7 @@ export default function CoursesPage() {
                   type="button"
                   aria-label="Delete course"
                   onClick={() => setDeleteTarget(c)}
-                  className="shrink-0 rounded-lg border border-red-500 p-2 text-red-500 transition hover:bg-red-50 hover:shadow-md hover:shadow-red-500/50"
+                  className="shrink-0 rounded-lg border border-red-500 p-2 text-red-500 transition hover:scale-105 hover:bg-red-50 hover:shadow-md hover:shadow-red-500/50"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
