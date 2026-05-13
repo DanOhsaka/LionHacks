@@ -21,8 +21,12 @@ import { SessionRecapPanel, type SessionRecapModel } from "./SessionRecapPanel";
 const SPEED_SECONDS = 22;
 const FEEDBACK_CORRECT_MS = 2000;
 const FEEDBACK_WRONG_MS = 4200;
-/** Each 3-2-1 step duration (AnimatePresence exit + next enter). */
-const SPEED_COUNTDOWN_STEP_MS = 900;
+/**
+ * Calm pace between 3 → 2 → 1 (must exceed enter + exit durations below).
+ */
+const SPEED_COUNTDOWN_STEP_MS = 1480;
+/** “GO!” hold before the question timer starts. */
+const SPEED_COUNTDOWN_GO_MS = 820;
 
 export function GameEngine({
   checkpoints,
@@ -59,9 +63,9 @@ export function GameEngine({
   const [comebackEligible, setComebackEligible] = useState(false);
   const [final, setFinal] = useState<{ score: number; accuracy: number } | null>(null);
   const [recap, setRecap] = useState<SessionRecapModel | null>(null);
-  const [speedCountdownPhase, setSpeedCountdownPhase] = useState<"3" | "2" | "1" | null>(
-    () => (mode === "speed" ? "3" : null),
-  );
+  const [speedCountdownPhase, setSpeedCountdownPhase] = useState<
+    "3" | "2" | "1" | "go" | null
+  >(() => (mode === "speed" ? "3" : null));
 
   const feedbackTimeoutRef = useRef<number | null>(null);
   const questionStartedAtRef = useRef(Date.now());
@@ -77,10 +81,11 @@ export function GameEngine({
 
   const cpId = cp?.id;
   useEffect(() => {
-    if (phase === "idle" && cpId) {
-      questionStartedAtRef.current = Date.now();
-    }
-  }, [phase, currentIndex, cpId]);
+    if (phase !== "idle" || !cpId) return;
+    /* Speed mode: do not start the per-question clock until after 3-2-1-GO. */
+    if (mode === "speed" && speedCountdownPhase !== null) return;
+    questionStartedAtRef.current = Date.now();
+  }, [phase, currentIndex, cpId, mode, speedCountdownPhase]);
 
   const finishSession = useCallback(async () => {
     const st = useSessionStore.getState();
@@ -323,14 +328,27 @@ export function GameEngine({
       setSpeedCountdownPhase(null);
       return;
     }
+    let cancelled = false;
     setSpeedCountdownPhase("3");
-    const t1 = window.setTimeout(() => setSpeedCountdownPhase("2"), SPEED_COUNTDOWN_STEP_MS);
-    const t2 = window.setTimeout(() => setSpeedCountdownPhase("1"), SPEED_COUNTDOWN_STEP_MS * 2);
-    const t3 = window.setTimeout(() => setSpeedCountdownPhase(null), SPEED_COUNTDOWN_STEP_MS * 3);
+    const s = SPEED_COUNTDOWN_STEP_MS;
+    const t1 = window.setTimeout(() => {
+      if (!cancelled) setSpeedCountdownPhase("2");
+    }, s);
+    const t2 = window.setTimeout(() => {
+      if (!cancelled) setSpeedCountdownPhase("1");
+    }, s * 2);
+    const t3 = window.setTimeout(() => {
+      if (!cancelled) setSpeedCountdownPhase("go");
+    }, s * 3);
+    const t4 = window.setTimeout(() => {
+      if (!cancelled) setSpeedCountdownPhase(null);
+    }, s * 3 + SPEED_COUNTDOWN_GO_MS);
     return () => {
+      cancelled = true;
       window.clearTimeout(t1);
       window.clearTimeout(t2);
       window.clearTimeout(t3);
+      window.clearTimeout(t4);
     };
   }, [mode, sessionId]);
 
@@ -430,20 +448,29 @@ export function GameEngine({
     >
       {mode === "speed" && speedCountdownPhase !== null && (
         <div
-          className="pointer-events-auto fixed inset-0 z-[60] flex items-center justify-center bg-black/40"
+          className="pointer-events-auto fixed inset-0 z-[60] flex items-center justify-center bg-zinc-950/60 backdrop-blur-sm"
           aria-live="polite"
           aria-label="Speed mode starting"
         >
           <AnimatePresence mode="wait">
             <motion.span
               key={speedCountdownPhase}
-              initial={{ scale: 0.35, opacity: 0 }}
-              animate={{ scale: 1.12, opacity: 1 }}
-              exit={{ scale: 1.6, opacity: 0 }}
-              transition={{ duration: 0.75, ease: [0.22, 1, 0.36, 1] }}
-              className="select-none text-[min(30vw,10rem)] font-black tabular-nums tracking-tight text-white drop-shadow-[0_0_52px_rgba(52,211,153,0.5)] sm:text-[10rem]"
+              initial={{ opacity: 0, scale: 0.94, y: 14 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{
+                opacity: 0,
+                scale: 0.97,
+                y: -12,
+                transition: { duration: 0.44, ease: [0.33, 1, 0.68, 1] },
+              }}
+              transition={{ duration: 0.52, ease: [0.22, 1, 0.36, 1] }}
+              className={`select-none font-black tabular-nums tracking-tight text-white drop-shadow-[0_0_40px_rgba(52,211,153,0.35)] will-change-transform ${
+                speedCountdownPhase === "go"
+                  ? "text-[min(22vw,7rem)] sm:text-[7rem]"
+                  : "text-[min(26vw,9rem)] sm:text-[9rem]"
+              }`}
             >
-              {speedCountdownPhase}
+              {speedCountdownPhase === "go" ? "GO!" : speedCountdownPhase}
             </motion.span>
           </AnimatePresence>
         </div>
