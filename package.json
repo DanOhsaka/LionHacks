@@ -1,0 +1,12 @@
+{
+  "name": "lionhacks-workspace",
+  "private": true,
+  "scripts": {
+    "dev": "npm run dev --prefix learnpulse",
+    "dev:fresh": "npm run clean --prefix learnpulse && npm run dev --prefix learnpulse",
+    "clean": "npm run clean --prefix learnpulse",
+    "build": "npm run build --prefix learnpulse",
+    "start": "npm run start --prefix learnpulse",
+    "lint": "npm run lint --prefix learnpulse"
+  }
+}

@@ -1,9 +1,18 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Lock, Share2 } from "lucide-react";
+import { Lock, Share2, Trophy } from "lucide-react";
+
+import { ACHIEVEMENT_KEYS } from "@/lib/achievements";
+import { PageHeader } from "@/components/dashboard/PageHeader";
+import { EmptyState } from "@/components/ui/empty-state";
+import {
+  acknowledgeAchievementKeys,
+  notifyAchievementsAcknowledged,
+} from "@/lib/achievement-notifications";
 
 type AchievementRow = {
   key: string;
@@ -41,6 +50,9 @@ const CARD_THEMES = [
 export default function AchievementsPage() {
   const [items, setItems] = useState<AchievementRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const reduceMotion = useReducedMotion();
+  const totalPossible = ACHIEVEMENT_KEYS.length;
+  const unlockedCount = useMemo(() => items.filter((a) => a.unlocked).length, [items]);
 
   useEffect(() => {
     void fetch("/api/achievements")
@@ -51,6 +63,14 @@ export default function AchievementsPage() {
       .catch(() => toast.error("Could not load achievements"))
       .finally(() => setLoading(false));
   }, []);
+
+  /** Mark all currently unlocked badges as seen (clears sidebar notification). */
+  useEffect(() => {
+    if (loading) return;
+    const unlockedKeys = items.filter((a) => a.unlocked).map((a) => a.key);
+    acknowledgeAchievementKeys(unlockedKeys);
+    notifyAchievementsAcknowledged();
+  }, [loading, items]);
 
   async function shareBadge(a: AchievementRow) {
     const text = a.unlocked
@@ -69,32 +89,77 @@ export default function AchievementsPage() {
   }
 
   if (loading) {
-    return <p className="text-zinc-500">Loading achievements…</p>;
+    return (
+      <div className="app-container-dashboard space-y-6" aria-hidden>
+        <div className="app-panel app-panel-elevated pp-skeleton-pulse h-28 rounded-2xl" />
+        <div className="grid gap-4 sm:grid-cols-2">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="app-panel pp-skeleton-pulse h-44 rounded-2xl" />
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-8">
-      <header className="app-panel rounded-3xl p-6">
-        <h1 className="bg-gradient-to-r from-emerald-200 via-cyan-200 to-fuchsia-200 bg-clip-text text-3xl font-semibold tracking-tight text-transparent">
-          Achievements
-        </h1>
-        <p className="mt-1 text-zinc-400">Collect badges as you study. Share your wins.</p>
-      </header>
-      <div className="grid gap-4 sm:grid-cols-2">
-        {items.map((a, i) => {
-          const theme = CARD_THEMES[i % CARD_THEMES.length]!;
-          return (
-          <motion.article
-            key={a.key}
-            layout
-            whileHover={{ y: -4, scale: 1.01 }}
-            transition={{ type: "spring", stiffness: 300, damping: 22 }}
-            className={`relative overflow-hidden rounded-2xl border p-5 ${
-              a.unlocked
-                ? "border-emerald-400/50 bg-gradient-to-br from-zinc-900/70 via-zinc-900/70 to-zinc-900/80 shadow-lg shadow-emerald-900/20"
-                : "border-zinc-700/70 bg-zinc-900/60 shadow-lg shadow-black/20 saturate-50"
-            }`}
+    <div className="app-container-dashboard space-y-8">
+      <PageHeader
+        title="Achievements"
+        description="Collect badges as you study. Share your wins."
+        breadcrumbs={[
+          { href: "/dashboard", label: "Dashboard" },
+          { label: "Achievements" },
+        ]}
+        titleGradient
+        action={
+          <span
+            className="inline-flex items-center gap-2 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-sm font-semibold tabular-nums text-emerald-100"
+            aria-label={`${unlockedCount} of ${totalPossible} achievements unlocked`}
           >
+            <Trophy className="h-4 w-4 shrink-0 text-emerald-300" aria-hidden />
+            <span>
+              {unlockedCount} / {totalPossible}
+            </span>
+          </span>
+        }
+      />
+      {items.length === 0 ? (
+        <EmptyState
+          icon={Trophy}
+          title="No badges yet"
+          description="Complete sessions, build streaks, and explore modes — achievements appear here as you hit milestones."
+          action={
+            <Link
+              href="/courses"
+              className="pp-hover-grow inline-flex rounded-xl bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-emerald-950 hover:bg-emerald-400"
+            >
+              Go to courses
+            </Link>
+          }
+        />
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {items.map((a, i) => {
+            const theme = CARD_THEMES[i % CARD_THEMES.length]!;
+            return (
+              <motion.article
+                key={a.key}
+                layout
+                whileHover={
+                  reduceMotion
+                    ? undefined
+                    : {
+                        y: -4,
+                        scale: 1.01,
+                      }
+                }
+                transition={{ type: "spring", stiffness: 300, damping: 22 }}
+                className={`relative overflow-hidden rounded-2xl border p-5 ${
+                  a.unlocked
+                    ? "achievement-signature border-emerald-400/50 bg-gradient-to-br from-zinc-900/70 via-zinc-900/70 to-zinc-900/80 shadow-lg shadow-emerald-900/20"
+                    : "border-zinc-700/70 bg-zinc-900/60 shadow-lg shadow-black/20 saturate-50"
+                }`}
+              >
             <div
               className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${theme.glow} ${
                 a.unlocked ? "opacity-90" : "opacity-30"
@@ -103,7 +168,9 @@ export default function AchievementsPage() {
             <motion.div
               className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-white/10 blur-2xl"
               initial={{ opacity: 0.3, scale: 0.9 }}
-              whileHover={{ opacity: 0.6, scale: 1.15 }}
+              whileHover={
+                reduceMotion ? undefined : { opacity: 0.6, scale: 1.15 }
+              }
               transition={{ duration: 0.35 }}
             />
             <div className="flex items-start justify-between gap-3">
@@ -112,7 +179,11 @@ export default function AchievementsPage() {
                   className={`relative flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-br ${theme.icon} text-3xl shadow-lg shadow-black/20 ${
                     a.unlocked ? "" : "grayscale"
                   }`}
-                  whileHover={{ rotate: [-3, 3, -2, 0], scale: 1.06 }}
+                  whileHover={
+                    reduceMotion
+                      ? undefined
+                      : { rotate: [-3, 3, -2, 0], scale: 1.06 }
+                  }
                   transition={{ duration: 0.45 }}
                 >
                   {a.icon}
@@ -158,13 +229,14 @@ export default function AchievementsPage() {
                 className="relative z-10 rounded-lg border border-zinc-700 p-2 text-zinc-400 transition hover:bg-zinc-800 hover:text-white"
                 title="Share badge"
               >
-                <Share2 className="h-4 w-4" />
+                <Share2 className="h-4 w-4 shrink-0" strokeWidth={2} />
               </button>
             </div>
           </motion.article>
           );
-        })}
-      </div>
+          })}
+        </div>
+      )}
     </div>
   );
 }

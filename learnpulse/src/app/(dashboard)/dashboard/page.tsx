@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { PageHeader } from "@/components/dashboard/PageHeader";
+import { EmptyState } from "@/components/ui/empty-state";
 import { LearnerGoalsCard } from "./learner-goals-card";
 import { Badge } from "@/components/ui/badge";
 import { computeStudyStreakUtc } from "@/lib/dashboard-stats";
 import { createClient } from "@/lib/supabase/server";
-import { ArrowRight, BarChart3, Sparkles, Upload } from "lucide-react";
-
+import { ArrowRight, BarChart3, BookOpen, Sparkles, Upload } from "lucide-react";
 export default async function DashboardPage() {
   const supabase = createClient();
   const {
@@ -54,28 +55,26 @@ export default async function DashboardPage() {
   const streak = computeStudyStreakUtc(streakSessions ?? []);
 
   return (
-    <div className="mx-auto max-w-4xl space-y-10">
-      <header className="app-panel rounded-3xl p-6">
-        <h1 className="bg-gradient-to-r from-emerald-300 via-cyan-300 to-fuchsia-300 bg-clip-text text-3xl font-semibold tracking-tight text-transparent">
-          Dashboard
-        </h1>
-        <p className="mt-1 text-zinc-400">
-          Your pulse on progress, time, and momentum.
-        </p>
-        <div className="mt-3">
-          <Badge>Academic analytics workspace</Badge>
-        </div>
-        <Link
-          href="/dashboard/analytics"
-          className="mt-4 inline-flex items-center gap-2 rounded-xl border border-emerald-400/40 bg-gradient-to-r from-emerald-500/20 to-cyan-500/20 px-4 py-2 text-sm font-medium text-emerald-100 transition hover:-translate-y-[1px] hover:from-emerald-500/30 hover:to-cyan-500/30"
-        >
-          <BarChart3 className="h-4 w-4" />
-          Open analytics
-        </Link>
-      </header>
+    <div className="app-container-dashboard">
+      <PageHeader
+        title="Dashboard"
+        description="Your pulse on progress, time, and momentum."
+        titleGradient
+        action={
+          <div className="flex flex-col items-stretch gap-3 sm:items-end">
+            <Badge className="w-fit justify-center sm:justify-end">Academic analytics workspace</Badge>
+            <Link
+              href="/dashboard/analytics"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-400/40 bg-gradient-to-r from-emerald-500/20 to-cyan-500/20 px-4 py-2 text-sm font-medium text-emerald-100 transition-transform duration-200 ease-[cubic-bezier(0.33,1,0.68,1)] hover:scale-[1.045] hover:-translate-y-[1px] hover:from-emerald-500/30 hover:to-cyan-500/30"
+            >
+              <BarChart3 className="h-4 w-4 shrink-0" strokeWidth={2} />
+              Open analytics
+            </Link>
+          </div>
+        }
+      />
 
       <LearnerGoalsCard />
-
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Active courses" value={String(activeCourses.length || courseList.length)} />
         <StatCard label="Avg completion" value={`${avgCompletion}%`} />
@@ -98,7 +97,7 @@ export default async function DashboardPage() {
           </div>
           <Link
             href="/upload"
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-400 to-cyan-300 px-4 py-2.5 text-sm font-medium text-zinc-900 transition hover:-translate-y-[1px] hover:from-emerald-300 hover:to-cyan-200"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-400 to-cyan-300 px-4 py-2.5 text-sm font-medium text-zinc-900 transition-transform duration-200 ease-[cubic-bezier(0.33,1,0.68,1)] hover:scale-[1.045] hover:-translate-y-[1px] hover:from-emerald-300 hover:to-cyan-200"
           >
             <Upload className="h-4 w-4" />
             Upload
@@ -109,16 +108,27 @@ export default async function DashboardPage() {
       <section>
         <h2 className="app-section-title mb-4">Active subjects</h2>
         {activeCourses.length === 0 && courseList.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-zinc-700 bg-zinc-900/30 px-4 py-8 text-center text-sm text-zinc-500">
-            No courses yet. Upload your first deck to get started.
-          </p>
+          <EmptyState
+            icon={BookOpen}
+            title="No courses yet"
+            description="Upload notes, slides, or a syllabus — we turn them into checkpoints you can play in Speed, Zen, or Story mode."
+            action={
+              <Link
+                href="/upload"
+                className="pp-hover-grow inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-400 to-cyan-300 px-6 py-2.5 text-sm font-semibold text-zinc-900 hover:from-emerald-300 hover:to-cyan-200"
+              >
+                <Upload className="h-4 w-4 shrink-0" strokeWidth={2} />
+                Upload your first deck
+              </Link>
+            }
+          />
         ) : (
           <ul className="space-y-3">
             {(activeCourses.length ? activeCourses : courseList.slice(0, 6)).map((c) => (
               <li key={c.id}>
                 <Link
                   href={`/courses/${c.id}`}
-                  className="group flex items-center justify-between rounded-xl border border-zinc-800/80 bg-zinc-900/40 px-4 py-3 transition-all hover:-translate-y-[1px] hover:border-cyan-400/40 hover:bg-zinc-900/70"
+                  className="group flex items-center justify-between rounded-xl border border-zinc-800/80 bg-zinc-900/40 px-4 py-3 transition-transform duration-200 ease-[cubic-bezier(0.33,1,0.68,1)] hover:scale-[1.045] hover:-translate-y-[1px] hover:border-cyan-400/40 hover:bg-zinc-900/70"
                 >
                   <div>
                     <p className="font-medium text-white">{c.title}</p>
@@ -138,7 +148,19 @@ export default async function DashboardPage() {
       <section>
         <h2 className="app-section-title mb-4">Recent sessions</h2>
         {!sessions?.length ? (
-          <p className="text-sm text-zinc-500">No sessions yet. Start a game from a course.</p>
+          <EmptyState
+            icon={Sparkles}
+            title="No sessions yet"
+            description="Open a course and start a session — your recent runs and scores will land here."
+            action={
+              <Link
+                href="/courses"
+                className="pp-hover-grow inline-flex rounded-xl border border-zinc-600 px-5 py-2.5 text-sm font-medium text-zinc-200 hover:border-cyan-500/40 hover:bg-zinc-800/80"
+              >
+                Browse courses
+              </Link>
+            }
+          />
         ) : (
           <ul className="divide-y divide-zinc-800 rounded-xl border border-zinc-800/80 bg-zinc-900/40">
             {sessions.map((s) => {
@@ -190,7 +212,7 @@ function StatCard({
           : "border-zinc-800/80 bg-zinc-900/50 shadow-black/20"
       }`}
     >
-      <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">{label}</p>
+      <p className="text-xs font-medium uppercase tracking-wide text-app-muted">{label}</p>
       <p className="mt-1 text-2xl font-semibold text-white">{value}</p>
       <div className="mt-3 h-1.5 rounded-full bg-zinc-800">
         <div

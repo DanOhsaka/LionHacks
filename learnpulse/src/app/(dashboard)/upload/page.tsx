@@ -7,6 +7,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { UploadCloud } from "lucide-react";
 
+import { PageHeader } from "@/components/dashboard/PageHeader";
+
 export default function UploadPage() {
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
@@ -44,16 +46,17 @@ export default function UploadPage() {
 
   return (
     <div className="mx-auto max-w-lg space-y-8">
-      <div className="app-panel rounded-3xl p-6">
-        <h1 className="bg-gradient-to-r from-emerald-200 via-cyan-200 to-fuchsia-200 bg-clip-text text-3xl font-semibold tracking-tight text-transparent">
-          Upload material
-        </h1>
-        <p className="mt-1 text-sm text-zinc-400">
-          PDF, Word, PowerPoint, or plain text. Gemini builds chapters and quiz checkpoints.
-        </p>
-      </div>
+      <PageHeader
+        title="Upload material"
+        description="PDF, Word, PowerPoint, or plain text. Gemini builds chapters and quiz checkpoints."
+        breadcrumbs={[
+          { href: "/dashboard", label: "Dashboard" },
+          { label: "Upload" },
+        ]}
+        titleGradient
+      />
       <motion.form
-        initial={{ opacity: 0, y: 6 }}
+        initial={{ opacity: 1, y: 0 }}
         animate={{ opacity: 1, y: 0 }}
         onSubmit={(e) => void onSubmit(e)}
         className="app-panel space-y-6 rounded-2xl p-6"
@@ -79,7 +82,7 @@ export default function UploadPage() {
           {loading ? "Processing…" : "Upload & generate"}
         </button>
       </motion.form>
-      <Link href="/dashboard" className="text-sm text-zinc-500 hover:text-white">
+      <Link href="/dashboard" className="pp-hover-grow inline-flex text-sm text-zinc-500 hover:text-white">
         ← Back to dashboard
       </Link>
     </div>

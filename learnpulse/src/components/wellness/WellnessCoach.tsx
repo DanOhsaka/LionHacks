@@ -52,7 +52,7 @@ export function WellnessCoach({ active }: { active: boolean }) {
     <AnimatePresence>
       {showBreathing && (
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
+          initial={{ opacity: 1, y: 0 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 8 }}
           className="pointer-events-auto fixed bottom-6 right-6 z-50 max-w-sm rounded-2xl border border-sky-500/40 bg-sky-950/95 p-4 text-sm text-sky-50 shadow-2xl"
@@ -78,10 +78,10 @@ export function WellnessCoach({ active }: { active: boolean }) {
       )}
       {showStreakCoach && (
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
+          initial={{ opacity: 1, y: 0 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 8 }}
-          className="pointer-events-auto fixed bottom-6 left-6 z-50 max-w-sm rounded-2xl border border-amber-500/40 bg-amber-950/95 p-4 text-sm text-amber-50 shadow-2xl"
+          className="pointer-events-auto fixed bottom-6 left-6 z-50 max-w-sm rounded-2xl border border-amber-500/40 bg-amber-950/95 p-4 text-sm text-amber-50 shadow-2xl sm:left-[calc(1.5rem+14rem)]"
         >
           <div className="flex items-start gap-3">
             <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />

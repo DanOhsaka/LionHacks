@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { PageHeader } from "@/components/dashboard/PageHeader";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
 import {
   moduleConfidencePercent,
@@ -68,18 +70,21 @@ export default async function CourseDetailPage({ params }: PageProps) {
       duration_seconds: (s.duration_seconds as number | null) ?? null,
     }));
 
+  const crumbTitle =
+    course.title.length > 30 ? `${course.title.slice(0, 29)}…` : course.title;
+
   return (
-    <div className="mx-auto max-w-4xl space-y-10">
-      <header className="app-panel rounded-3xl p-6">
-        <Badge className="w-fit">{course.subject}</Badge>
-        <h1 className="bg-gradient-to-r from-emerald-200 via-cyan-200 to-fuchsia-200 bg-clip-text text-3xl font-semibold tracking-tight text-transparent">
-          {course.title}
-        </h1>
-        <p className="text-zinc-400">
-          Completion {Math.round(Number(course.completion_percent ?? 0))}% · Streak{" "}
-          {course.current_streak ?? 0} days
-        </p>
-      </header>
+    <div className="app-container-dashboard">
+      <PageHeader
+        title={course.title}
+        description={`Completion ${Math.round(Number(course.completion_percent ?? 0))}% · Streak ${course.current_streak ?? 0} days`}
+        breadcrumbs={[
+          { href: "/dashboard", label: "Dashboard" },
+          { href: "/courses", label: "Courses" },
+          { label: crumbTitle },
+        ]}
+        action={<Badge className="w-fit shrink-0">{course.subject}</Badge>}
+      />
 
       <CourseSessionStarter courseId={course.id} />
 
@@ -90,7 +95,11 @@ export default async function CourseDetailPage({ params }: PageProps) {
         </h2>
         <div className="space-y-6">
           {chapterKeys.length === 0 ? (
-            <p className="text-sm text-zinc-500">No checkpoints for this course.</p>
+            <EmptyState
+              icon={BookMarked}
+              title="No checkpoints yet"
+              description="We could not derive quiz items from this upload yet. Try uploading again with clearer text, or start a session once generation completes."
+            />
           ) : (
             chapterKeys.map((ch) => {
               const items = byChapter.get(ch)!;
@@ -144,7 +153,11 @@ export default async function CourseDetailPage({ params }: PageProps) {
       <section>
         <h2 className="app-section-title mb-4">Session history</h2>
         {sess.length === 0 ? (
-          <p className="text-sm text-zinc-500">No sessions for this course yet.</p>
+          <EmptyState
+            icon={BarChart3}
+            title="No sessions yet"
+            description="Play a round from this course — accuracy and duration will show up in this table."
+          />
         ) : (
           <div className="overflow-x-auto rounded-2xl border border-zinc-800/80 bg-zinc-900/40">
             <table className="w-full min-w-[560px] text-left text-sm">
@@ -185,7 +198,7 @@ export default async function CourseDetailPage({ params }: PageProps) {
 
       <Link
         href="/courses"
-        className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-white"
+        className="pp-hover-grow inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-white"
       >
         ← Back to library
       </Link>

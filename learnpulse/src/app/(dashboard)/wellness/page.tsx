@@ -13,6 +13,8 @@ import {
 } from "recharts";
 import { toast } from "sonner";
 
+import { PageHeader } from "@/components/dashboard/PageHeader";
+
 type Log = { id: string; mood: number; notes: string | null; logged_at: string };
 
 const INTRO_TEXT =
@@ -211,22 +213,24 @@ export default function WellnessPage() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-3xl">
-        <p className="text-zinc-500">Loading wellness…</p>
+      <div className="app-container-dashboard space-y-6" aria-hidden>
+        <div className="app-panel app-panel-elevated pp-skeleton-pulse h-28 rounded-2xl" />
+        <div className="app-panel pp-skeleton-pulse h-64 rounded-2xl" />
       </div>
     );
   }
 
   return (
     <div className="mx-auto max-w-3xl space-y-8 pb-24">
-      <header className="app-panel rounded-3xl p-6">
-        <h1 className="bg-gradient-to-r from-emerald-200 via-cyan-200 to-fuchsia-200 bg-clip-text text-3xl font-semibold tracking-tight text-transparent">
-          Wellness with Roomie
-        </h1>
-        <p className="mt-1 text-sm text-zinc-400">
-          Log how you feel, chat with Roomie, and see your mood trend.
-        </p>
-      </header>
+      <PageHeader
+        title="Wellness with Roomie"
+        description="Log how you feel, chat with Roomie, and see your mood trend."
+        breadcrumbs={[
+          { href: "/dashboard", label: "Dashboard" },
+          { label: "Wellness" },
+        ]}
+        titleGradient
+      />
 
       {/* Section 1 — Mood log */}
       <section className="app-panel rounded-2xl p-6">
@@ -402,9 +406,16 @@ export default function WellnessPage() {
                     <Line
                       type="monotone"
                       dataKey="mood"
-                      stroke="#22c55e"
+                      stroke={segmentStroke(chartPoints[0]!.mood, chartPoints[0]!.mood)}
                       strokeWidth={3}
-                      dot={{ r: 5, fill: "#22c55e" }}
+                      dot={{
+                        r: 5,
+                        fill: segmentStroke(chartPoints[0]!.mood, chartPoints[0]!.mood),
+                      }}
+                      activeDot={{
+                        r: 6,
+                        fill: segmentStroke(chartPoints[0]!.mood, chartPoints[0]!.mood),
+                      }}
                       isAnimationActive={false}
                     />
                   )}

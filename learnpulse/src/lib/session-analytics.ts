@@ -180,6 +180,54 @@ export function exportSessionsCsv(sessions: Record<string, unknown>[]): string {
   return [headers.join(","), ...rows].join("\n");
 }
 
+const MAX_PERSISTED_EVENTS = 800;
+
+function deepStripNullBytesAndTruncate(v: unknown, maxStr = 8000): unknown {
+  if (typeof v === "string") {
+    return v.replace(/\u0000/g, "").slice(0, maxStr);
+  }
+  if (Array.isArray(v)) {
+    return v.map((x) => deepStripNullBytesAndTruncate(x, maxStr));
+  }
+  if (v && typeof v === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+      out[k] = deepStripNullBytesAndTruncate(val, maxStr);
+    }
+    return out;
+  }
+  return v;
+}
+
+/**
+ * Deep-clone session metadata for Postgres jsonb: removes null bytes (common in PDF
+ * extraction), caps huge event lists, and drops per-question events when chapter rollup
+ * is already present (smaller payload, same rollup for module_stats).
+ */
+export function prepareSessionMetadataForPersistence(
+  incoming: Record<string, unknown>,
+): Record<string, unknown> {
+  let cloned: Record<string, unknown>;
+  try {
+    cloned = JSON.parse(JSON.stringify(incoming)) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+  const analytics = cloned.analytics;
+  if (analytics && typeof analytics === "object") {
+    const a = analytics as {
+      chapter_rollup?: ChapterRollup[];
+      events?: unknown[];
+    };
+    if (Array.isArray(a.chapter_rollup) && a.chapter_rollup.length > 0 && Array.isArray(a.events)) {
+      delete a.events;
+    } else if (Array.isArray(a.events) && a.events.length > MAX_PERSISTED_EVENTS) {
+      a.events = a.events.slice(-MAX_PERSISTED_EVENTS);
+    }
+  }
+  return deepStripNullBytesAndTruncate(cloned) as Record<string, unknown>;
+}
+
 /** First-seen vs repeat attempts for checkpoint ids from prior sessions + current. */
 export function retentionSnapshot(
   priorEvents: { checkpoint_id: string; outcome: QuestionOutcome }[],

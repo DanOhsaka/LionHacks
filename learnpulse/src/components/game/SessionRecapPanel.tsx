@@ -128,9 +128,27 @@ export function SessionRecapPanel({ recap }: { recap: SessionRecapModel }) {
 
   return (
     <div className="mx-auto mt-6 max-w-2xl space-y-6 text-left">
+      <div className="recap-hero-signature relative overflow-hidden rounded-2xl px-6 pb-8 pt-7 sm:px-8 sm:pb-10 sm:pt-9">
+        <div className="relative pt-1">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-app-muted">
+            Session complete
+          </p>
+          <p className="font-display mt-2 text-5xl font-bold tabular-nums tracking-tight text-white sm:text-6xl">
+            {recap.accuracy}%
+          </p>
+          <p className="mt-2 text-sm text-app-muted">
+            Accuracy ·{" "}
+            <span className="font-medium text-emerald-200/95">{recap.score} pts</span>
+            {" · "}
+            {Math.round(recap.durationSeconds / 60)}m play
+          </p>
+          <p className="mt-1 text-xs text-zinc-500">{recap.courseTitle}</p>
+        </div>
+      </div>
+
       <div>
-        <h2 className="text-xl font-semibold text-white">Session recap</h2>
-        <p className="mt-1 text-sm text-zinc-500">{recap.courseTitle}</p>
+        <h2 className="font-display text-xl font-semibold text-white">Recap details</h2>
+        <p className="mt-1 text-sm text-app-muted">Breakdown of this run.</p>
       </div>
 
       {dq.flag !== "ok" && (
@@ -145,7 +163,7 @@ export function SessionRecapPanel({ recap }: { recap: SessionRecapModel }) {
       )}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Accuracy" value={`${recap.accuracy}%`} />
+        <Stat label="Events logged" value={String(analytics.events.length)} />
         <Stat label="Score" value={String(recap.score)} />
         <Stat label="Duration" value={`${recap.durationSeconds}s`} />
         <Stat
@@ -251,13 +269,13 @@ export function SessionRecapPanel({ recap }: { recap: SessionRecapModel }) {
         </button>
         <Link
           href={`/courses/${recap.courseId}`}
-          className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-emerald-950 hover:bg-emerald-400"
+          className="pp-hover-grow inline-flex rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-emerald-950 hover:bg-emerald-400"
         >
           Back to course
         </Link>
         <Link
           href="/dashboard/analytics"
-          className="rounded-lg border border-emerald-500/40 px-4 py-2 text-sm text-emerald-300 hover:bg-emerald-500/10"
+          className="pp-hover-grow inline-flex rounded-lg border border-emerald-500/40 px-4 py-2 text-sm text-emerald-300 hover:bg-emerald-500/10"
         >
           Full analytics
         </Link>
@@ -269,7 +287,7 @@ export function SessionRecapPanel({ recap }: { recap: SessionRecapModel }) {
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-3">
-      <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">{label}</p>
+      <p className="text-[10px] font-medium uppercase tracking-wide text-app-muted">{label}</p>
       <p className="mt-1 text-lg font-semibold text-white">{value}</p>
     </div>
   );

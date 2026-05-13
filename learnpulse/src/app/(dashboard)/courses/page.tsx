@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { BookOpen, Flame, Play, Trash2 } from "lucide-react";
 
 import { DeleteCourseModal } from "@/components/courses/DeleteCourseModal";
+import { PageHeader } from "@/components/dashboard/PageHeader";
+import { EmptyState } from "@/components/ui/empty-state";
 import { createClient } from "@/lib/supabase/client";
 
 type CourseRow = {
@@ -28,8 +30,9 @@ export default function CoursesPage() {
   const loadCourses = useCallback(async (): Promise<boolean> => {
     const supabase = createClient();
     const {
-      data: { user },
-    } = await supabase.auth.getUser();
+      data: { session },
+    } = await supabase.auth.getSession();
+    const user = session?.user;
     if (!user) {
       router.replace("/login");
       return false;
@@ -44,9 +47,26 @@ export default function CoursesPage() {
   }, [router]);
 
   useEffect(() => {
+    let cancelled = false;
     void loadCourses().then((loaded) => {
+      if (cancelled) return;
       if (loaded) setLoading(false);
     });
+    return () => {
+      cancelled = true;
+    };
+  }, [loadCourses]);
+
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === "visible") void loadCourses();
+    };
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("focus", refresh);
+    return () => {
+      document.removeEventListener("visibilitychange", refresh);
+      window.removeEventListener("focus", refresh);
+    };
   }, [loadCourses]);
 
   async function handleConfirmDelete() {
@@ -85,8 +105,13 @@ export default function CoursesPage() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-5xl">
-        <p className="text-zinc-500">Loading course library…</p>
+      <div className="app-container-wide space-y-8" aria-hidden>
+        <div className="app-panel app-panel-elevated pp-skeleton-pulse h-28 rounded-2xl" />
+        <div className="grid gap-5 sm:grid-cols-2">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="app-panel pp-skeleton-pulse h-64 rounded-2xl" />
+          ))}
+        </div>
       </div>
     );
   }
@@ -94,26 +119,38 @@ export default function CoursesPage() {
   const list = courses;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8">
-      <div className="app-panel flex flex-col gap-4 rounded-3xl p-6 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="bg-gradient-to-r from-emerald-200 via-cyan-200 to-fuchsia-200 bg-clip-text text-3xl font-semibold tracking-tight text-transparent">
-            Course library
-          </h1>
-          <p className="mt-1 text-zinc-400">Everything you have uploaded, ready to play.</p>
-        </div>
-        <Link
-          href="/upload"
-          className="inline-flex items-center justify-center rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-medium text-emerald-950 hover:bg-emerald-400"
-        >
-          Upload material
-        </Link>
-      </div>
+    <div className="app-container-wide">
+      <PageHeader
+        title="Course library"
+        description="Everything you have uploaded, ready to play."
+        breadcrumbs={[
+          { href: "/dashboard", label: "Dashboard" },
+          { label: "Courses" },
+        ]}
+        action={
+          <Link
+            href="/upload"
+            className="pp-hover-grow inline-flex items-center justify-center rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-medium text-emerald-950 hover:bg-emerald-400"
+          >
+            Upload material
+          </Link>
+        }
+      />
 
       {list.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-zinc-700 bg-zinc-900/30 px-6 py-16 text-center text-zinc-500">
-          No courses yet. Upload notes or slides to generate your first curriculum.
-        </p>
+        <EmptyState
+          icon={BookOpen}
+          title="Your library is empty"
+          description="Add PDFs, slides, or notes — we parse them and build Speed, Zen, and Story sessions tailored to your material."
+          action={
+            <Link
+              href="/upload"
+              className="pp-hover-grow inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-400 to-cyan-300 px-6 py-2.5 text-sm font-semibold text-zinc-900 hover:from-emerald-300 hover:to-cyan-200"
+            >
+              Upload material
+            </Link>
+          }
+        />
       ) : (
         <div className="grid gap-5 sm:grid-cols-2">
           {list.map((c) => (
@@ -159,14 +196,14 @@ export default function CoursesPage() {
               <div className="mt-5 flex gap-2">
                 <Link
                   href={`/courses/${c.id}/play?mode=zen`}
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-500 py-2 text-sm font-medium text-emerald-950 transition hover:bg-emerald-400 group-hover:shadow-[0_0_0_1px_rgba(45,212,191,0.35)]"
+                  className="pp-hover-grow inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-500 py-2 text-sm font-medium text-emerald-950 hover:bg-emerald-400 group-hover:shadow-[0_0_0_1px_rgba(45,212,191,0.35)]"
                 >
                   <Play className="h-4 w-4" />
                   New session
                 </Link>
                 <Link
                   href={`/courses/${c.id}`}
-                  className="inline-flex flex-1 items-center justify-center rounded-lg border border-zinc-700 py-2 text-sm font-medium text-zinc-200 hover:bg-zinc-800"
+                  className="pp-hover-grow inline-flex flex-1 items-center justify-center rounded-lg border border-zinc-700 py-2 text-sm font-medium text-zinc-200 hover:bg-zinc-800"
                 >
                   Continue
                 </Link>
@@ -174,9 +211,9 @@ export default function CoursesPage() {
                   type="button"
                   aria-label="Delete course"
                   onClick={() => setDeleteTarget(c)}
-                  className="shrink-0 rounded-lg border border-red-500 p-2 text-red-500 transition hover:scale-105 hover:bg-red-50 hover:shadow-md hover:shadow-red-500/50"
+                  className="group shrink-0 overflow-hidden rounded-lg border border-red-500/60 bg-zinc-950/40 p-2 text-red-400 transition-[transform,box-shadow,background-color,border-color,color] duration-200 ease-[cubic-bezier(0.33,1,0.68,1)] will-change-transform hover:border-red-400 hover:bg-red-950/55 hover:text-red-100 hover:shadow-[inset_0_0_22px_rgba(252,165,165,0.45),inset_0_0_48px_rgba(127,29,29,0.35)]"
                 >
-                  <Trash2 className="h-4 w-4" />
+                  <Trash2 className="h-4 w-4 shrink-0 transition group-hover:text-red-100" />
                 </button>
               </div>
             </article>

@@ -41,7 +41,7 @@ export default function LoginPage() {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8 }}
+      initial={{ opacity: 1, y: 0 }}
       animate={{ opacity: 1, y: 0 }}
       className="app-panel rounded-2xl p-8"
     >

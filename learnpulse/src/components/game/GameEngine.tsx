@@ -14,12 +14,15 @@ import {
   type QuestionEvent,
   type SessionAnalyticsV1,
 } from "@/lib/session-analytics";
+import { notifyAchievementsStateChanged } from "@/lib/achievement-notifications";
 
 import { SessionRecapPanel, type SessionRecapModel } from "./SessionRecapPanel";
 
 const SPEED_SECONDS = 22;
 const FEEDBACK_CORRECT_MS = 2000;
 const FEEDBACK_WRONG_MS = 4200;
+/** Each 3-2-1 step duration (AnimatePresence exit + next enter). */
+const SPEED_COUNTDOWN_STEP_MS = 900;
 
 export function GameEngine({
   checkpoints,
@@ -56,6 +59,9 @@ export function GameEngine({
   const [comebackEligible, setComebackEligible] = useState(false);
   const [final, setFinal] = useState<{ score: number; accuracy: number } | null>(null);
   const [recap, setRecap] = useState<SessionRecapModel | null>(null);
+  const [speedCountdownPhase, setSpeedCountdownPhase] = useState<"3" | "2" | "1" | null>(
+    () => (mode === "speed" ? "3" : null),
+  );
 
   const feedbackTimeoutRef = useRef<number | null>(null);
   const questionStartedAtRef = useRef(Date.now());
@@ -116,25 +122,15 @@ export function GameEngine({
       metadata.comeback_kid = true;
     }
 
-    setFinal({
-      score: st.score,
-      accuracy: answered === 0 ? 0 : Math.round((cc / answered) * 100),
-    });
-    setRecap({
-      sessionId,
-      courseId,
-      courseTitle,
-      score: st.score,
-      accuracy: answered === 0 ? 0 : Math.round((cc / answered) * 100),
-      durationSeconds,
-      analytics,
-    });
-    setPhase("done");
+    const displayAccuracy = answered === 0 ? 0 : Math.round((cc / answered) * 100);
 
+    /* Persist before showing "done" / links so navigation cannot abort the save. */
+    let saveOk = false;
     try {
-      await fetch("/api/sessions", {
+      const res = await fetch("/api/sessions", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
         body: JSON.stringify({
           session_id: sessionId,
           score: st.score,
@@ -145,9 +141,48 @@ export function GameEngine({
           metadata,
         }),
       });
-      await fetch("/api/achievements", { method: "POST" });
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        details?: string;
+        hint?: string;
+      };
+      if (!res.ok) {
+        const parts = [data.error, data.details, data.hint].filter(Boolean);
+        toast.error(parts.join(" — ") || "Could not save session");
+      } else {
+        saveOk = true;
+      }
     } catch {
       toast.error("Could not save session");
+    }
+
+    setFinal({
+      score: st.score,
+      accuracy: displayAccuracy,
+    });
+    setRecap({
+      sessionId,
+      courseId,
+      courseTitle,
+      score: st.score,
+      accuracy: displayAccuracy,
+      durationSeconds,
+      analytics,
+    });
+    setPhase("done");
+
+    if (saveOk) {
+      try {
+        const ar = await fetch("/api/achievements", {
+          method: "POST",
+          credentials: "same-origin",
+        });
+        if (ar.ok) {
+          notifyAchievementsStateChanged();
+        }
+      } catch {
+        /* achievements are optional */
+      }
     }
 
     resetGame();
@@ -178,6 +213,7 @@ export function GameEngine({
   const handleAnswer = useCallback(
     async (index: number, timedOut = false) => {
       if (phase !== "idle" || !cp) return;
+      if (mode === "speed" && speedCountdownPhase !== null) return;
       if (!timedOut && selected !== null) return;
 
       const isCorrect = !timedOut && index === cp.correct_index;
@@ -241,6 +277,7 @@ export function GameEngine({
       advanceNarrative,
       goNextOrFinish,
       maxWrongStreak,
+      speedCountdownPhase,
     ],
   );
 
@@ -248,6 +285,7 @@ export function GameEngine({
 
   const onEdgeTap = useCallback(
     (side: "left" | "right") => {
+      if (mode === "speed" && speedCountdownPhase !== null) return;
       if (phase === "done") return;
       if (phase === "correct" || phase === "wrong") {
         if (side === "right") goNextOrFinish();
@@ -275,8 +313,26 @@ export function GameEngine({
       goNextOrFinish,
       navigateCheckpoint,
       incrementBrowseSkips,
+      mode,
+      speedCountdownPhase,
     ],
   );
+
+  useEffect(() => {
+    if (mode !== "speed") {
+      setSpeedCountdownPhase(null);
+      return;
+    }
+    setSpeedCountdownPhase("3");
+    const t1 = window.setTimeout(() => setSpeedCountdownPhase("2"), SPEED_COUNTDOWN_STEP_MS);
+    const t2 = window.setTimeout(() => setSpeedCountdownPhase("1"), SPEED_COUNTDOWN_STEP_MS * 2);
+    const t3 = window.setTimeout(() => setSpeedCountdownPhase(null), SPEED_COUNTDOWN_STEP_MS * 3);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+      window.clearTimeout(t3);
+    };
+  }, [mode, sessionId]);
 
   useEffect(() => {
     return () => {
@@ -287,7 +343,7 @@ export function GameEngine({
   }, []);
 
   useEffect(() => {
-    if (mode !== "speed" || phase !== "idle" || !cp) return;
+    if (mode !== "speed" || phase !== "idle" || !cp || speedCountdownPhase !== null) return;
     let ticks = SPEED_SECONDS;
     setSecondsLeft(ticks);
     let cancelled = false;
@@ -303,12 +359,12 @@ export function GameEngine({
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [mode, phase, cp, currentIndex]);
+  }, [mode, phase, cp, currentIndex, speedCountdownPhase]);
 
   if (phase === "done" && final && recap) {
     return (
       <motion.div
-        initial={{ opacity: 0, scale: 0.98 }}
+        initial={{ opacity: 1, scale: 1 }}
         animate={{ opacity: 1, scale: 1 }}
         className="mx-auto max-w-2xl rounded-2xl border border-emerald-500/30 bg-zinc-900/50 p-6 sm:p-8"
       >
@@ -324,7 +380,7 @@ export function GameEngine({
   if (phase === "done" && final) {
     return (
       <motion.div
-        initial={{ opacity: 0, scale: 0.96 }}
+        initial={{ opacity: 1, scale: 1 }}
         animate={{ opacity: 1, scale: 1 }}
         className="mx-auto max-w-lg rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-8 text-center"
       >
@@ -363,36 +419,94 @@ export function GameEngine({
     pickedLabel,
   );
 
+  const modeChromeClass =
+    mode === "speed" ? "mode-chrome-speed" : mode === "story" ? "mode-chrome-story" : "mode-chrome-zen";
+
+  const showStepDots = total > 0 && total <= 56 && phase !== "done";
+
   return (
-    <div className="relative mx-auto min-h-[min(100dvh,52rem)] max-w-2xl space-y-6 pb-8">
+    <div
+      className={`relative mx-auto min-h-[min(100dvh,52rem)] max-w-2xl space-y-6 p-0.5 pb-8 sm:p-1 ${modeChromeClass}`}
+    >
+      {mode === "speed" && speedCountdownPhase !== null && (
+        <div
+          className="pointer-events-auto fixed inset-0 z-[60] flex items-center justify-center bg-black/40"
+          aria-live="polite"
+          aria-label="Speed mode starting"
+        >
+          <AnimatePresence mode="wait">
+            <motion.span
+              key={speedCountdownPhase}
+              initial={{ scale: 0.35, opacity: 0 }}
+              animate={{ scale: 1.12, opacity: 1 }}
+              exit={{ scale: 1.6, opacity: 0 }}
+              transition={{ duration: 0.75, ease: [0.22, 1, 0.36, 1] }}
+              className="select-none text-[min(30vw,10rem)] font-black tabular-nums tracking-tight text-white drop-shadow-[0_0_52px_rgba(52,211,153,0.5)] sm:text-[10rem]"
+            >
+              {speedCountdownPhase}
+            </motion.span>
+          </AnimatePresence>
+        </div>
+      )}
+      <div className="relative z-[15] flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-800/70 bg-zinc-950/50 px-3 py-2 text-xs backdrop-blur-sm">
+        <span className="font-semibold uppercase tracking-[0.14em] text-app-muted">
+          {mode === "speed" ? "Speed" : mode === "story" ? "Story" : "Zen"}
+        </span>
+        {mode === "speed" && (
+          <span className="text-amber-200/90">{SPEED_SECONDS}s per question</span>
+        )}
+        {mode === "zen" && <span className="text-cyan-200/85">No timer</span>}
+        {mode === "story" && (
+          <span className="max-w-[min(100%,14rem)] truncate text-violet-200/90">
+            {chapterTitle || "Chapters unlock as you learn"}
+          </span>
+        )}
+      </div>
+      {showStepDots && (
+        <div
+          className="relative z-10 flex flex-wrap justify-center gap-1 px-1"
+          aria-hidden
+        >
+          {checkpoints.map((c, i) => (
+            <span
+              key={c.id}
+              className={`h-1.5 rounded-full transition-all duration-300 ${
+                i === currentIndex
+                  ? "w-6 bg-emerald-400"
+                  : i < currentIndex
+                    ? "w-1.5 bg-emerald-500/40"
+                    : "w-1.5 bg-zinc-700"
+              }`}
+            />
+          ))}
+        </div>
+      )}
       <button
         type="button"
         aria-label="Previous question"
+        data-no-button-scale
         className="absolute bottom-0 left-0 top-0 z-20 w-[clamp(2.5rem,16vw,7rem)] cursor-pointer border-0 bg-transparent p-0"
         onClick={() => onEdgeTap("left")}
       />
       <button
         type="button"
         aria-label="Next question or continue"
+        data-no-button-scale
         className="absolute bottom-0 right-0 top-0 z-20 w-[clamp(2.5rem,16vw,7rem)] cursor-pointer border-0 bg-transparent p-0"
         onClick={() => onEdgeTap("right")}
       />
 
-      <div className="relative z-10 flex flex-wrap items-center justify-between gap-3 text-sm text-zinc-400">
+      <div className="relative z-10 flex flex-wrap items-center justify-between gap-3 text-sm text-app-muted">
         <span>
           Question {Math.min(currentIndex + 1, total)} / {total}
         </span>
         <span className="text-emerald-300">Score {score}</span>
-        {mode === "speed" && phase === "idle" && (
+        {mode === "speed" && phase === "idle" && speedCountdownPhase === null && (
           <span
             className={`font-mono ${secondsLeft <= 5 ? "text-amber-400" : "text-zinc-300"}`}
           >
             {secondsLeft}s
           </span>
-        )}
-        {mode === "zen" && <span className="text-zinc-500">Zen — no timer</span>}
-        {mode === "story" && (
-          <span className="text-violet-300">Story mode — chapters unlock</span>
         )}
       </div>
 
@@ -400,7 +514,7 @@ export function GameEngine({
         {mode === "story" && phase === "correct" && (
           <motion.p
             key={`nar-${narrativeBeat}`}
-            initial={{ opacity: 0, y: 6 }}
+            initial={{ opacity: 1, y: 0 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
             className="relative z-10 rounded-xl border border-violet-500/30 bg-violet-500/10 px-4 py-3 text-sm text-violet-100"
@@ -412,7 +526,7 @@ export function GameEngine({
 
       <motion.div
         key={cp.id}
-        initial={{ opacity: 0, y: 10 }}
+        initial={{ opacity: 1, y: 0 }}
         animate={{ opacity: 1, y: 0 }}
         className="relative z-10 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6 shadow-xl"
       >
@@ -428,9 +542,9 @@ export function GameEngine({
               <motion.button
                 key={i}
                 type="button"
-                disabled={phase !== "idle"}
+                disabled={phase !== "idle" || (mode === "speed" && speedCountdownPhase !== null)}
                 onClick={() => void handleAnswer(i)}
-                className={`rounded-xl border px-4 py-3 text-left text-sm transition ${
+                className={`rounded-xl border px-4 py-3 text-left text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/55 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
                   showCorrectHighlight
                     ? "border-emerald-500 bg-emerald-500/20 text-emerald-50"
                     : showWrong
@@ -454,7 +568,7 @@ export function GameEngine({
       <AnimatePresence>
         {phase === "correct" && (
           <motion.div
-            initial={{ scale: 0.5, opacity: 0 }}
+            initial={{ scale: 1, opacity: 1 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ opacity: 0 }}
             className="pointer-events-none fixed inset-0 z-[5] flex items-center justify-center"
@@ -468,7 +582,7 @@ export function GameEngine({
         )}
         {phase === "wrong" && (
           <motion.div
-            initial={{ opacity: 0, y: 8 }}
+            initial={{ opacity: 1, y: 0 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
             className="relative z-10 space-y-3"

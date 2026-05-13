@@ -11,12 +11,13 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { BarChart3, Download } from "lucide-react";
+import { Download } from "lucide-react";
 
 import {
   exportSessionsCsv,
   exportSessionsJson,
 } from "@/lib/session-analytics";
+import { PageHeader } from "@/components/dashboard/PageHeader";
 
 type SessionRow = {
   id: string;
@@ -201,50 +202,49 @@ export function AnalyticsDashboardClient({ sessions }: { sessions: SessionRow[] 
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-10">
-      <header className="app-panel flex flex-col gap-4 rounded-3xl p-6 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="flex items-center gap-2 text-3xl font-semibold tracking-tight text-white">
-            <BarChart3 className="h-8 w-8 text-emerald-400" />
-            Analytics
-          </h1>
-          <p className="mt-1 text-zinc-400">
-            Trends, course comparison, exports, and week-over-week signals.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={range}
-            onChange={(e) => setRange(e.target.value as "30" | "90")}
-            className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white"
-          >
-            <option value="30">Last 30 days</option>
-            <option value="90">Last 90 days</option>
-          </select>
-          <button
-            type="button"
-            onClick={downloadJson}
-            className="inline-flex items-center gap-1 rounded-lg border border-zinc-600 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800"
-          >
-            <Download className="h-4 w-4" />
-            JSON
-          </button>
-          <button
-            type="button"
-            onClick={downloadCsv}
-            className="inline-flex items-center gap-1 rounded-lg border border-zinc-600 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800"
-          >
-            <Download className="h-4 w-4" />
-            CSV
-          </button>
-          <Link
-            href="/dashboard"
-            className="rounded-lg px-3 py-2 text-sm text-zinc-400 hover:text-white"
-          >
-            ← Dashboard
-          </Link>
-        </div>
-      </header>
+    <div className="app-container-wide">
+      <PageHeader
+        title="Analytics"
+        description="Trends, course comparison, exports, and week-over-week signals."
+        breadcrumbs={[
+          { href: "/dashboard", label: "Dashboard" },
+          { label: "Analytics" },
+        ]}
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={range}
+              onChange={(e) => setRange(e.target.value as "30" | "90")}
+              className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white"
+            >
+              <option value="30">Last 30 days</option>
+              <option value="90">Last 90 days</option>
+            </select>
+            <button
+              type="button"
+              onClick={downloadJson}
+              className="inline-flex items-center gap-1 rounded-lg border border-zinc-600 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800"
+            >
+              <Download className="h-4 w-4 shrink-0" strokeWidth={2} />
+              JSON
+            </button>
+            <button
+              type="button"
+              onClick={downloadCsv}
+              className="inline-flex items-center gap-1 rounded-lg border border-zinc-600 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800"
+            >
+              <Download className="h-4 w-4 shrink-0" strokeWidth={2} />
+              CSV
+            </button>
+            <Link
+              href="/dashboard"
+              className="pp-hover-grow inline-flex rounded-lg px-3 py-2 text-sm text-app-muted hover:text-white"
+            >
+              ← Dashboard
+            </Link>
+          </div>
+        }
+      />
 
       <section className="grid gap-4 sm:grid-cols-3">
         <div className="app-panel rounded-2xl p-4">

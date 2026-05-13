@@ -19,13 +19,17 @@ export default async function DashboardGroupLayout({
   }
 
   return (
-    <div className="relative flex min-h-screen overflow-hidden bg-zinc-950 text-zinc-100">
-      <div className="pointer-events-none absolute inset-0">
+    <div
+      className="relative flex min-h-screen overflow-hidden bg-background text-foreground"
+      style={{ backgroundColor: "#070b14", color: "#e8eaef", minHeight: "100vh" }}
+    >
+      <div className="pointer-events-none absolute inset-0 z-0">
         <div className="absolute -top-24 left-8 h-56 w-56 rounded-full bg-fuchsia-500/10 blur-2xl" />
         <div className="absolute right-0 top-20 h-52 w-52 rounded-full bg-cyan-500/10 blur-2xl" />
       </div>
       <DashboardNav />
-      <main className="relative z-10 flex-1 overflow-auto p-6 sm:p-10">{children}</main>
+      {/* Main above aside so fixed UI inside children (e.g. session coach) is not trapped under the nav */}
+      <main className="relative z-20 flex-1 overflow-auto p-6 sm:p-10">{children}</main>
       <RoomieBubble />
     </div>
   );

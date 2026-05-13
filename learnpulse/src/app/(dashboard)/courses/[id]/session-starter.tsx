@@ -16,7 +16,7 @@ export function CourseSessionStarter({ courseId }: { courseId: string }) {
 
   return (
     <motion.section
-      initial={{ opacity: 0, y: 6 }}
+      initial={{ opacity: 1, y: 0 }}
       animate={{ opacity: 1, y: 0 }}
       className="rounded-2xl border border-zinc-800 bg-gradient-to-br from-zinc-900/80 to-zinc-950 p-6"
     >
@@ -46,7 +46,7 @@ export function CourseSessionStarter({ courseId }: { courseId: string }) {
       </div>
       <Link
         href={`/courses/${courseId}/play?mode=${selected}`}
-        className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3 text-sm font-medium text-emerald-950 transition hover:bg-emerald-400 sm:w-auto sm:px-8"
+        className="pp-hover-grow mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3 text-sm font-medium text-emerald-950 hover:bg-emerald-400 sm:w-auto sm:px-8"
       >
         <Play className="h-4 w-4" />
         Play {modes.find((m) => m.id === selected)?.label}
