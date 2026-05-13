@@ -1,11 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   /**
-   * Default `.next` under OneDrive often breaks: files become non-symlinks, then Next’s
-   * startup `readlink` on `.next/package.json` throws EINVAL. Use a separate folder name.
-   * Run `npm run clean` and delete any stuck `.next` folder in Explorer if needed.
+   * OneDrive on Windows can break the default `.next` folder (symlinks / readlink).
+   * Use `.next-local` only for local dev; Vercel and CI must use `.next` (Vercel’s default).
    */
-  distDir: ".next-local",
+  distDir: process.env.VERCEL ? ".next" : ".next-local",
   experimental: {
     optimizePackageImports: ["lucide-react", "framer-motion", "recharts"],
   },
