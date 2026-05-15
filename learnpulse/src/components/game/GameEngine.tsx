@@ -1,8 +1,16 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
+import { Volume2, VolumeX } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+
+import {
+  playGameSound,
+  primeGameAudio,
+  STREAK_SOUND_MILESTONES,
+} from "@/lib/game-sounds";
+import { usePreferencesStore } from "@/stores/preferencesStore";
 
 import type { GameCheckpoint, GameMode } from "@/stores/sessionStore";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -69,6 +77,32 @@ export function GameEngine({
 
   const feedbackTimeoutRef = useRef<number | null>(null);
   const questionStartedAtRef = useRef(Date.now());
+  const audioPrimedRef = useRef(false);
+
+  const sessionMuted = usePreferencesStore((s) => s.sessionMuted);
+  const toggleSessionMuted = usePreferencesStore((s) => s.toggleSessionMuted);
+  const shouldPlayGameSounds = usePreferencesStore((s) => s.shouldPlayGameSounds);
+
+  const playFeedbackSound = useCallback(
+    (kind: "correct" | "wrong", comboAfter: number) => {
+      if (!shouldPlayGameSounds(mode)) return;
+      if (!audioPrimedRef.current) {
+        primeGameAudio();
+        audioPrimedRef.current = true;
+      }
+      if (kind === "correct") {
+        playGameSound("correct");
+        if (STREAK_SOUND_MILESTONES.includes(comboAfter as (typeof STREAK_SOUND_MILESTONES)[number])) {
+          const level =
+            comboAfter >= 10 ? 4 : comboAfter >= 5 ? 3 : 2;
+          window.setTimeout(() => playGameSound("streak", level), 120);
+        }
+      } else {
+        playGameSound("wrong");
+      }
+    },
+    [mode, shouldPlayGameSounds],
+  );
 
   const total = checkpoints.length;
   const cp = checkpoints[currentIndex];
@@ -248,6 +282,7 @@ export function GameEngine({
           ms_spent: msSpent,
           combo_after: stAfter.combo,
         });
+        playFeedbackSound("correct", stAfter.combo);
         feedbackTimeoutRef.current = window.setTimeout(
           goNextOrFinish,
           FEEDBACK_CORRECT_MS,
@@ -264,6 +299,7 @@ export function GameEngine({
           ms_spent: msSpent,
           combo_after: stAfter.combo,
         });
+        playFeedbackSound("wrong", stAfter.combo);
         feedbackTimeoutRef.current = window.setTimeout(
           goNextOrFinish,
           FEEDBACK_WRONG_MS,
@@ -283,6 +319,7 @@ export function GameEngine({
       goNextOrFinish,
       maxWrongStreak,
       speedCountdownPhase,
+      playFeedbackSound,
     ],
   );
 
@@ -479,15 +516,35 @@ export function GameEngine({
         <span className="font-semibold uppercase tracking-[0.14em] text-app-muted">
           {mode === "speed" ? "Speed" : mode === "story" ? "Story" : "Zen"}
         </span>
-        {mode === "speed" && (
-          <span className="text-amber-200/90">{SPEED_SECONDS}s per question</span>
-        )}
-        {mode === "zen" && <span className="text-cyan-200/85">No timer</span>}
-        {mode === "story" && (
-          <span className="max-w-[min(100%,14rem)] truncate text-violet-200/90">
-            {chapterTitle || "Chapters unlock as you learn"}
-          </span>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {mode === "speed" && (
+            <span className="text-amber-200/90">{SPEED_SECONDS}s per question</span>
+          )}
+          {mode === "zen" && <span className="text-cyan-200/85">No timer</span>}
+          {mode === "story" && (
+            <span className="max-w-[min(100%,14rem)] truncate text-violet-200/90">
+              {chapterTitle || "Chapters unlock as you learn"}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              primeGameAudio();
+              audioPrimedRef.current = true;
+              toggleSessionMuted();
+            }}
+            className="inline-flex items-center gap-1 rounded-lg border border-zinc-700/80 px-2 py-1 text-[11px] font-medium text-zinc-300 transition hover:border-zinc-500 hover:text-foreground"
+            aria-pressed={sessionMuted}
+            aria-label={sessionMuted ? "Unmute session sounds" : "Mute session sounds"}
+          >
+            {sessionMuted ? (
+              <VolumeX className="h-3.5 w-3.5" />
+            ) : (
+              <Volume2 className="h-3.5 w-3.5" />
+            )}
+            {sessionMuted ? "Muted" : "Sound"}
+          </button>
+        </div>
       </div>
       {showStepDots && (
         <div

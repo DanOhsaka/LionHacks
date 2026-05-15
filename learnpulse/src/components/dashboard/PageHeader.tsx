@@ -48,7 +48,7 @@ export function PageHeader({
             className={
               titleGradient
                 ? "font-display bg-gradient-to-r from-emerald-300 via-amber-200 to-cyan-300 bg-clip-text text-2xl font-semibold tracking-tight text-transparent sm:text-3xl md:text-4xl"
-                : "font-display text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl"
+                : "font-display text-2xl font-semibold tracking-tight text-foreground sm:text-3xl md:text-4xl"
             }
           >
             {title}

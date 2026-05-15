@@ -9,6 +9,7 @@ function isProtectedPath(pathname: string): boolean {
     "/achievements",
     "/upload",
     "/wellness",
+    "/settings",
   ];
   return prefixes.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`),

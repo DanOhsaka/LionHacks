@@ -10,6 +10,7 @@ import {
   HeartPulse,
   LayoutDashboard,
   LogOut,
+  Settings,
   Trophy,
   Upload,
 } from "lucide-react";
@@ -28,6 +29,7 @@ const links = [
   { href: "/achievements", label: "Achievements", icon: Trophy, short: "Awards" },
   { href: "/dashboard/wellness", label: "Wellness", icon: HeartPulse, short: "Wellness" },
   { href: "/upload", label: "Upload", icon: Upload, short: "Upload" },
+  { href: "/settings", label: "Settings", icon: Settings, short: "Settings" },
 ];
 
 export function DashboardNav() {
@@ -88,7 +90,7 @@ export function DashboardNav() {
   }
 
   return (
-    <aside className="relative z-30 flex w-full shrink-0 flex-col gap-0 border-b border-zinc-800/80 bg-zinc-950/90 backdrop-blur-md sm:w-56 sm:border-b-0 sm:border-r sm:py-6">
+    <aside className="relative z-30 flex w-full shrink-0 flex-col gap-0 border-b border-[var(--nav-border)] bg-[var(--nav-bg)] backdrop-blur-md sm:w-56 sm:border-b-0 sm:border-r sm:py-6">
       {/* Mobile: compact brand row */}
       <div className="flex items-center gap-2.5 border-b border-zinc-800/60 px-3 py-2.5 sm:hidden">
         <div
@@ -104,8 +106,8 @@ export function DashboardNav() {
           />
         </div>
         <div className="min-w-0">
-          <span className="text-sm font-semibold text-white">PridePath</span>
-          <p className="truncate text-[10px] text-zinc-500">Study smarter, play harder</p>
+          <span className="text-sm font-bold text-foreground">PridePath</span>
+          <p className="truncate text-[10px] font-medium text-app-muted">Study smarter, play harder</p>
         </div>
       </div>
 
@@ -126,8 +128,8 @@ export function DashboardNav() {
             />
           </div>
           <div className="min-w-0 pt-0.5">
-            <span className="text-lg font-semibold tracking-tight text-white">PridePath</span>
-            <p className="mt-1 text-xs leading-snug text-zinc-400">Study smarter, play harder</p>
+            <span className="text-lg font-bold tracking-tight text-foreground">PridePath</span>
+            <p className="mt-1 text-xs font-medium leading-snug text-app-muted">Study smarter, play harder</p>
           </div>
         </div>
       </div>
@@ -157,14 +159,14 @@ export function DashboardNav() {
               key={href}
               href={href}
               prefetch={true}
-              className={`group relative flex shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors duration-200 sm:shrink ${
+              className={`group relative flex shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors duration-200 sm:shrink ${
                 active
                   ? "bg-gradient-to-r from-emerald-500/30 to-cyan-500/20 text-emerald-200 shadow-[0_0_0_1px_rgba(16,185,129,0.35)]"
-                  : "text-zinc-300 hover:bg-zinc-800/80 hover:text-white"
+                  : "text-foreground hover:bg-emerald-500/10"
               }`}
             >
               <Icon
-                className={`h-4 w-4 shrink-0 ${active ? "text-emerald-300" : "text-zinc-400 group-hover:text-cyan-300"}`}
+                className={`h-4 w-4 shrink-0 ${active ? "text-emerald-300" : "text-app-muted group-hover:text-cyan-500"}`}
               />
               <span className="hidden whitespace-nowrap sm:inline">{label}</span>
               <span className="whitespace-nowrap sm:hidden">{short}</span>
@@ -182,7 +184,7 @@ export function DashboardNav() {
         <button
           type="button"
           onClick={() => void logout()}
-          className="group flex shrink-0 items-center gap-2 rounded-xl border border-zinc-800/80 px-3 py-2.5 text-sm text-zinc-400 transition-colors hover:border-red-500/70 hover:bg-red-950/50 hover:text-red-100 sm:hidden"
+          className="group flex shrink-0 items-center gap-2 rounded-xl border border-[var(--nav-border)] px-3 py-2.5 text-sm font-medium text-app-muted transition-colors hover:border-red-500/70 hover:bg-red-950/50 hover:text-red-700 sm:hidden"
         >
           <LogOut className="h-4 w-4 shrink-0" />
           <span className="whitespace-nowrap">Log out</span>
@@ -192,9 +194,9 @@ export function DashboardNav() {
       <button
         type="button"
         onClick={() => void logout()}
-        className="group mx-3 mb-3 mt-auto hidden items-center gap-2 overflow-hidden rounded-xl border border-zinc-800/80 px-3 py-2.5 text-left text-sm text-zinc-400 transition-[box-shadow,background-color,border-color,color] duration-200 hover:border-red-500/70 hover:bg-red-950/50 hover:text-red-100 sm:flex"
+        className="group mx-3 mb-3 mt-auto hidden items-center gap-2 overflow-hidden rounded-xl border border-[var(--nav-border)] px-3 py-2.5 text-left text-sm font-medium text-app-muted transition-[box-shadow,background-color,border-color,color] duration-200 hover:border-red-500/70 hover:bg-red-950/50 hover:text-red-700 sm:flex"
       >
-        <LogOut className="h-4 w-4 shrink-0 transition group-hover:text-red-100" />
+        <LogOut className="h-4 w-4 shrink-0 transition group-hover:text-red-700" />
         Log out
       </button>
     </aside>

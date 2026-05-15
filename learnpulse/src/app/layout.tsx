@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Instrument_Sans, Inter } from "next/font/google";
+import Script from "next/script";
 import { Toaster } from "sonner";
 
+import { PreferencesProvider } from "@/components/providers/PreferencesProvider";
 import "./globals.css";
 
 const inter = Inter({
@@ -80,27 +82,21 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  /* Inline fallbacks: if Tailwind/CSS or hydration fails, never show a blank white canvas */
-  const shellBg = "#070b14";
-  const shellFg = "#e8eaef";
-
   return (
     <html
       lang="en"
       className={`${inter.variable} ${instrumentSans.variable} min-h-full bg-background`}
-      style={{ backgroundColor: shellBg, minHeight: "100%" }}
+      data-theme="dark"
+      suppressHydrationWarning
     >
-      <body
-        className="min-h-screen bg-background font-sans antialiased text-foreground"
-        style={{
-          backgroundColor: shellBg,
-          color: shellFg,
-          minHeight: "100vh",
-          margin: 0,
-        }}
-      >
-        {children}
-        <Toaster richColors position="bottom-right" offset={20} />
+      <body className="min-h-screen bg-background font-sans antialiased text-foreground">
+        <Script id="pridepath-theme-init" strategy="beforeInteractive">
+          {`(function(){try{var raw=localStorage.getItem("pridepath-preferences");var theme="dark";if(raw){var p=JSON.parse(raw);if(p&&p.state&&p.state.theme)theme=p.state.theme;}var resolved=theme==="system"?(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"):theme;document.documentElement.setAttribute("data-theme",resolved);document.documentElement.style.colorScheme=resolved;}catch(e){document.documentElement.setAttribute("data-theme","dark");}})();`}
+        </Script>
+        <PreferencesProvider>
+          {children}
+          <Toaster richColors position="bottom-right" offset={20} />
+        </PreferencesProvider>
       </body>
     </html>
   );
