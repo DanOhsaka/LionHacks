@@ -16,10 +16,57 @@ const instrumentSans = Instrument_Sans({
   display: "swap",
 });
 
+const siteDescription = "Study smarter, play harder — turn your notes into quiz games.";
+
+function siteUrl(): URL {
+  const fromEnv = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (fromEnv) {
+    try {
+      return new URL(fromEnv);
+    } catch {
+      /* fall through */
+    }
+  }
+  const vercel = process.env.VERCEL_URL?.trim();
+  if (vercel) {
+    return new URL(`https://${vercel}`);
+  }
+  return new URL("http://localhost:3000");
+}
+
 export const metadata: Metadata = {
-  title: "PridePath — AI study games",
-  description:
-    "Upload your materials, play quiz modes, track wellness, and earn achievements.",
+  metadataBase: siteUrl(),
+  title: {
+    default: "PridePath",
+    template: "%s · PridePath",
+  },
+  description: siteDescription,
+  applicationName: "PridePath",
+  icons: {
+    icon: "/pridepath-lion.png",
+    apple: "/pridepath-lion.png",
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    siteName: "PridePath",
+    title: "PridePath",
+    description: siteDescription,
+    images: [
+      {
+        url: "/pridepath-lion.png",
+        width: 512,
+        height: 512,
+        alt: "PridePath lion logo",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary",
+    title: "PridePath",
+    description: siteDescription,
+    images: ["/pridepath-lion.png"],
+  },
 };
 
 export const viewport: Viewport = {
