@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Volume2, VolumeX } from "lucide-react";
+import { ChevronLeft, ChevronRight, Volume2, VolumeX } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -63,6 +63,7 @@ export function GameEngine({
     incrementBrowseSkips,
     advanceNarrative,
     resetGame,
+    questionEvents,
   } = useSessionStore();
 
   const [selected, setSelected] = useState<number | null>(null);
@@ -416,6 +417,46 @@ export function GameEngine({
     };
   }, [mode, phase, cp, currentIndex, speedCountdownPhase]);
 
+  const outcomeByCheckpointId = useMemo(() => {
+    const map = new Map<string, QuestionEvent["outcome"]>();
+    for (const e of questionEvents) {
+      map.set(e.checkpoint_id, e.outcome);
+    }
+    return map;
+  }, [questionEvents]);
+
+  const canGoPrev =
+    currentIndex > 0 && phase === "idle" && speedCountdownPhase === null;
+  const canGoNext =
+    speedCountdownPhase === null &&
+    (phase === "correct" ||
+      phase === "wrong" ||
+      (phase === "idle" && currentIndex < total - 1));
+
+  const showStepDots = total > 0 && total <= 56 && phase !== "done";
+
+  function stepDotClass(index: number): string {
+    const outcome = outcomeByCheckpointId.get(checkpoints[index]?.id ?? "");
+    const isCurrent = index === currentIndex;
+
+    if (isCurrent) {
+      if (phase === "wrong") return "h-1.5 w-6 rounded-full bg-red-500 transition-all duration-300";
+      if (phase === "correct") return "h-1.5 w-6 rounded-full bg-emerald-400 transition-all duration-300";
+      return "h-1.5 w-6 rounded-full bg-emerald-400 transition-all duration-300";
+    }
+
+    if (outcome === "correct") {
+      return "h-1.5 w-1.5 rounded-full bg-emerald-500/50 transition-all duration-300";
+    }
+    if (outcome === "wrong" || outcome === "timeout") {
+      return "h-1.5 w-1.5 rounded-full bg-red-500/80 transition-all duration-300";
+    }
+    if (index < currentIndex) {
+      return "h-1.5 w-1.5 rounded-full bg-zinc-600 transition-all duration-300";
+    }
+    return "h-1.5 w-1.5 rounded-full bg-zinc-700 transition-all duration-300";
+  }
+
   if (phase === "done" && final && recap) {
     return (
       <motion.div
@@ -477,11 +518,9 @@ export function GameEngine({
   const modeChromeClass =
     mode === "speed" ? "mode-chrome-speed" : mode === "story" ? "mode-chrome-story" : "mode-chrome-zen";
 
-  const showStepDots = total > 0 && total <= 56 && phase !== "done";
-
   return (
     <div
-      className={`relative mx-auto w-full min-w-0 max-w-2xl space-y-4 px-1 pb-24 sm:space-y-6 sm:p-1 sm:pb-8 ${modeChromeClass}`}
+      className={`relative mx-auto w-full min-w-0 max-w-2xl space-y-4 px-1 pb-8 sm:space-y-6 sm:p-1 ${modeChromeClass}`}
     >
       {mode === "speed" && speedCountdownPhase !== null && (
         <div
@@ -549,49 +588,70 @@ export function GameEngine({
       {showStepDots && (
         <div
           className="relative z-10 flex flex-wrap justify-center gap-1 px-1"
-          aria-hidden
+          aria-label="Question progress"
         >
           {checkpoints.map((c, i) => (
             <span
               key={c.id}
-              className={`h-1.5 rounded-full transition-all duration-300 ${
-                i === currentIndex
-                  ? "w-6 bg-emerald-400"
-                  : i < currentIndex
-                    ? "w-1.5 bg-emerald-500/40"
-                    : "w-1.5 bg-zinc-700"
-              }`}
+              className={stepDotClass(i)}
+              title={
+                outcomeByCheckpointId.get(c.id) === "correct"
+                  ? "Answered correctly"
+                  : outcomeByCheckpointId.get(c.id) === "wrong" ||
+                      outcomeByCheckpointId.get(c.id) === "timeout"
+                    ? "Missed"
+                    : i === currentIndex
+                      ? "Current question"
+                      : undefined
+              }
             />
           ))}
         </div>
       )}
-      <button
-        type="button"
-        aria-label="Previous question"
-        data-no-button-scale
-        className="absolute bottom-0 left-0 top-0 z-20 w-10 cursor-pointer border-0 bg-transparent p-0 sm:w-[clamp(2.5rem,12vw,5rem)]"
-        onClick={() => onEdgeTap("left")}
-      />
-      <button
-        type="button"
-        aria-label="Next question or continue"
-        data-no-button-scale
-        className="absolute bottom-0 right-0 top-0 z-20 w-10 cursor-pointer border-0 bg-transparent p-0 sm:w-[clamp(2.5rem,12vw,5rem)]"
-        onClick={() => onEdgeTap("right")}
-      />
+      <div className="relative z-10 flex items-center justify-between gap-2 text-sm text-app-muted">
+        <button
+          type="button"
+          data-no-button-scale
+          disabled={!canGoPrev}
+          onClick={() => onEdgeTap("left")}
+          aria-label="Previous question"
+          className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-zinc-700/80 bg-zinc-900/80 px-2.5 py-2 text-xs font-medium text-zinc-200 transition enabled:hover:border-cyan-500/40 enabled:hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-35"
+        >
+          <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden />
+          <span className="hidden sm:inline">Prev</span>
+        </button>
 
-      <div className="relative z-10 flex flex-wrap items-center justify-between gap-3 text-sm text-app-muted">
-        <span>
-          Question {Math.min(currentIndex + 1, total)} / {total}
-        </span>
-        <span className="text-emerald-300">Score {score}</span>
-        {mode === "speed" && phase === "idle" && speedCountdownPhase === null && (
-          <span
-            className={`font-mono ${secondsLeft <= 5 ? "text-amber-400" : "text-zinc-300"}`}
-          >
-            {secondsLeft}s
+        <div className="flex min-w-0 flex-1 flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center">
+          <span>
+            Question {Math.min(currentIndex + 1, total)} / {total}
           </span>
-        )}
+          <span className="text-emerald-300">Score {score}</span>
+          {mode === "speed" && phase === "idle" && speedCountdownPhase === null && (
+            <span
+              className={`font-mono ${secondsLeft <= 5 ? "text-amber-400" : "text-zinc-300"}`}
+            >
+              {secondsLeft}s
+            </span>
+          )}
+        </div>
+
+        <button
+          type="button"
+          data-no-button-scale
+          disabled={!canGoNext}
+          onClick={() => onEdgeTap("right")}
+          aria-label={
+            phase === "correct" || phase === "wrong"
+              ? "Continue to next question"
+              : "Next question"
+          }
+          className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-zinc-700/80 bg-zinc-900/80 px-2.5 py-2 text-xs font-medium text-zinc-200 transition enabled:hover:border-cyan-500/40 enabled:hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-35"
+        >
+          <span className="hidden sm:inline">
+            {phase === "correct" || phase === "wrong" ? "Continue" : "Next"}
+          </span>
+          <ChevronRight className="h-4 w-4 shrink-0" aria-hidden />
+        </button>
       </div>
 
       <AnimatePresence mode="wait">
