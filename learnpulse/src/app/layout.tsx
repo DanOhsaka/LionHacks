@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Instrument_Sans, Inter } from "next/font/google";
 import { Toaster } from "sonner";
 
@@ -20,6 +20,12 @@ export const metadata: Metadata = {
   title: "PridePath — AI study games",
   description:
     "Upload your materials, play quiz modes, track wellness, and earn achievements.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

@@ -22,12 +22,12 @@ import {
 } from "@/lib/achievement-notifications";
 
 const links = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
-  { href: "/courses", label: "Courses", icon: BookOpen },
-  { href: "/achievements", label: "Achievements", icon: Trophy },
-  { href: "/dashboard/wellness", label: "Wellness", icon: HeartPulse },
-  { href: "/upload", label: "Upload", icon: Upload },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, short: "Home" },
+  { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3, short: "Stats" },
+  { href: "/courses", label: "Courses", icon: BookOpen, short: "Courses" },
+  { href: "/achievements", label: "Achievements", icon: Trophy, short: "Awards" },
+  { href: "/dashboard/wellness", label: "Wellness", icon: HeartPulse, short: "Wellness" },
+  { href: "/upload", label: "Upload", icon: Upload, short: "Upload" },
 ];
 
 export function DashboardNav() {
@@ -88,8 +88,29 @@ export function DashboardNav() {
   }
 
   return (
-    <aside className="relative z-10 flex w-full shrink-0 flex-col gap-1 border-b border-zinc-800/80 bg-zinc-950/70 px-3 py-3 backdrop-blur-md sm:w-56 sm:border-b-0 sm:border-r sm:py-6">
-      <div className="mb-4 hidden rounded-xl border border-zinc-800/80 bg-zinc-900/50 px-3 py-3 sm:block">
+    <aside className="relative z-30 flex w-full shrink-0 flex-col gap-0 border-b border-zinc-800/80 bg-zinc-950/90 backdrop-blur-md sm:w-56 sm:border-b-0 sm:border-r sm:py-6">
+      {/* Mobile: compact brand row */}
+      <div className="flex items-center gap-2.5 border-b border-zinc-800/60 px-3 py-2.5 sm:hidden">
+        <div
+          className="relative shrink-0 rounded-full border border-emerald-400/50 bg-zinc-800 p-0.5"
+          aria-hidden
+        >
+          <Image
+            src="/pridepath-lion.png"
+            alt=""
+            width={32}
+            height={32}
+            className="rounded-full bg-black object-cover"
+          />
+        </div>
+        <div className="min-w-0">
+          <span className="text-sm font-semibold text-white">PridePath</span>
+          <p className="truncate text-[10px] text-zinc-500">Study smarter, play harder</p>
+        </div>
+      </div>
+
+      {/* Desktop: full brand block */}
+      <div className="mb-4 hidden rounded-xl border border-zinc-800/80 bg-zinc-900/50 px-3 py-3 sm:mx-3 sm:block">
         <div className="flex items-start gap-3">
           <div
             className="relative shrink-0 rounded-full border-2 border-emerald-400/60 bg-zinc-800 p-0.5 shadow-[0_0_20px_rgba(52,211,153,0.25)] ring-2 ring-white/15"
@@ -110,8 +131,12 @@ export function DashboardNav() {
           </div>
         </div>
       </div>
-      <nav className="flex flex-row flex-wrap gap-1 sm:flex-col">
-        {links.map(({ href, label, icon: Icon }) => {
+
+      <nav
+        className="flex flex-row gap-1 overflow-x-auto overscroll-x-contain px-2 py-2 [-ms-overflow-style:none] [scrollbar-width:none] sm:mx-0 sm:flex-col sm:overflow-visible sm:px-3 sm:py-0 [&::-webkit-scrollbar]:hidden"
+        aria-label="Main"
+      >
+        {links.map(({ href, label, icon: Icon, short }) => {
           const active =
             href === "/dashboard"
               ? pathname === "/dashboard"
@@ -132,14 +157,17 @@ export function DashboardNav() {
               key={href}
               href={href}
               prefetch={true}
-              className={`group relative flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition-transform duration-200 ease-[cubic-bezier(0.33,1,0.68,1)] will-change-transform ${
+              className={`group relative flex shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors duration-200 sm:shrink ${
                 active
-                  ? "bg-gradient-to-r from-emerald-500/30 to-cyan-500/20 text-emerald-200 shadow-[0_0_0_1px_rgba(16,185,129,0.35)] hover:scale-[1.045]"
-                  : "text-zinc-300 hover:-translate-y-px hover:scale-[1.045] hover:bg-zinc-800/80 hover:text-white"
+                  ? "bg-gradient-to-r from-emerald-500/30 to-cyan-500/20 text-emerald-200 shadow-[0_0_0_1px_rgba(16,185,129,0.35)]"
+                  : "text-zinc-300 hover:bg-zinc-800/80 hover:text-white"
               }`}
             >
-              <Icon className={`h-4 w-4 shrink-0 transition ${active ? "text-emerald-300" : "text-zinc-400 group-hover:text-cyan-300"}`} />
-              {label}
+              <Icon
+                className={`h-4 w-4 shrink-0 ${active ? "text-emerald-300" : "text-zinc-400 group-hover:text-cyan-300"}`}
+              />
+              <span className="hidden whitespace-nowrap sm:inline">{label}</span>
+              <span className="whitespace-nowrap sm:hidden">{short}</span>
               {showAchievementsBadge ? (
                 <span
                   className="pointer-events-none absolute -right-0.5 -top-0.5 flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-500 px-1 text-[10px] font-bold tabular-nums leading-none text-zinc-950 shadow ring-2 ring-zinc-950"
@@ -151,11 +179,20 @@ export function DashboardNav() {
             </Link>
           );
         })}
+        <button
+          type="button"
+          onClick={() => void logout()}
+          className="group flex shrink-0 items-center gap-2 rounded-xl border border-zinc-800/80 px-3 py-2.5 text-sm text-zinc-400 transition-colors hover:border-red-500/70 hover:bg-red-950/50 hover:text-red-100 sm:hidden"
+        >
+          <LogOut className="h-4 w-4 shrink-0" />
+          <span className="whitespace-nowrap">Log out</span>
+        </button>
       </nav>
+
       <button
         type="button"
         onClick={() => void logout()}
-        className="group mt-auto flex items-center gap-2 overflow-hidden rounded-xl border border-zinc-800/80 px-3 py-2.5 text-left text-sm text-zinc-400 transition-[transform,box-shadow,background-color,border-color,color] duration-200 ease-[cubic-bezier(0.33,1,0.68,1)] will-change-transform hover:border-red-500/70 hover:bg-red-950/50 hover:text-red-100 hover:shadow-[inset_0_0_28px_rgba(248,113,113,0.35),inset_0_0_64px_rgba(127,29,29,0.28)]"
+        className="group mx-3 mb-3 mt-auto hidden items-center gap-2 overflow-hidden rounded-xl border border-zinc-800/80 px-3 py-2.5 text-left text-sm text-zinc-400 transition-[box-shadow,background-color,border-color,color] duration-200 hover:border-red-500/70 hover:bg-red-950/50 hover:text-red-100 sm:flex"
       >
         <LogOut className="h-4 w-4 shrink-0 transition group-hover:text-red-100" />
         Log out

@@ -444,7 +444,7 @@ export function GameEngine({
 
   return (
     <div
-      className={`relative mx-auto min-h-[min(100dvh,52rem)] max-w-2xl space-y-6 p-0.5 pb-8 sm:p-1 ${modeChromeClass}`}
+      className={`relative mx-auto w-full min-w-0 max-w-2xl space-y-4 px-1 pb-24 sm:space-y-6 sm:p-1 sm:pb-8 ${modeChromeClass}`}
     >
       {mode === "speed" && speedCountdownPhase !== null && (
         <div
@@ -512,14 +512,14 @@ export function GameEngine({
         type="button"
         aria-label="Previous question"
         data-no-button-scale
-        className="absolute bottom-0 left-0 top-0 z-20 w-[clamp(2.5rem,16vw,7rem)] cursor-pointer border-0 bg-transparent p-0"
+        className="absolute bottom-0 left-0 top-0 z-20 w-10 cursor-pointer border-0 bg-transparent p-0 sm:w-[clamp(2.5rem,12vw,5rem)]"
         onClick={() => onEdgeTap("left")}
       />
       <button
         type="button"
         aria-label="Next question or continue"
         data-no-button-scale
-        className="absolute bottom-0 right-0 top-0 z-20 w-[clamp(2.5rem,16vw,7rem)] cursor-pointer border-0 bg-transparent p-0"
+        className="absolute bottom-0 right-0 top-0 z-20 w-10 cursor-pointer border-0 bg-transparent p-0 sm:w-[clamp(2.5rem,12vw,5rem)]"
         onClick={() => onEdgeTap("right")}
       />
 
@@ -555,7 +555,7 @@ export function GameEngine({
         key={cp.id}
         initial={{ opacity: 1, y: 0 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative z-10 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6 shadow-xl"
+        className="relative z-10 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4 shadow-xl sm:p-6"
       >
         <p className="text-lg font-medium leading-relaxed text-white">{cp.question}</p>
         <div className="mt-6 grid gap-3 sm:grid-cols-2">

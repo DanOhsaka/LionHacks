@@ -19,7 +19,7 @@ export default function LandingPage() {
       className="min-h-screen bg-zinc-950 text-zinc-100"
       style={{ backgroundColor: "#09090b", minHeight: "100vh" }}
     >
-      <header className="mx-auto flex max-w-5xl items-center justify-between px-6 py-6">
+      <header className="mx-auto flex max-w-5xl flex-col items-stretch gap-4 px-4 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-6">
         <div className="flex items-center gap-3">
           <Image
             src="/pridepath-lion.png"
@@ -30,7 +30,7 @@ export default function LandingPage() {
           />
           <span className="text-lg font-semibold tracking-tight text-white">PridePath</span>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <Link
             href="/login"
             className="pp-hover-grow rounded-lg px-4 py-2 text-sm font-medium text-zinc-300 hover:bg-zinc-800"
@@ -46,7 +46,7 @@ export default function LandingPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-6 pb-24 pt-10">
+      <main className="mx-auto max-w-5xl px-4 pb-24 pt-8 sm:px-6 sm:pt-10">
         <motion.div
           initial={{ opacity: 1, y: 0 }}
           animate={{ opacity: 1, y: 0 }}

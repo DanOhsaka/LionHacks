@@ -14,7 +14,7 @@ export default function AuthLayout({
         <div className="absolute left-1/2 top-1/3 h-72 w-72 -translate-x-1/2 rounded-full bg-highlight/5 blur-3xl" />
       </div>
 
-      <div className="relative z-10 grid w-full max-w-4xl overflow-hidden rounded-2xl border border-zinc-800/80 bg-surface/90 shadow-2xl shadow-black/40 backdrop-blur-md md:grid-cols-2">
+      <div className="relative z-10 grid w-full min-w-0 max-w-4xl overflow-hidden rounded-2xl border border-zinc-800/80 bg-surface/90 shadow-2xl shadow-black/40 backdrop-blur-md md:grid-cols-2">
         <aside className="hidden border-r border-zinc-800/80 bg-surface-elevated/95 p-8 md:block">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-info">
             PridePath

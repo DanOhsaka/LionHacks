@@ -18,7 +18,7 @@ export function PageHeader({
   titleGradient?: boolean;
 }) {
   return (
-    <header className="app-panel app-panel-elevated flex flex-col gap-4 rounded-2xl p-6 sm:flex-row sm:items-end sm:justify-between">
+    <header className="app-panel app-panel-elevated flex flex-col gap-4 rounded-2xl p-4 sm:flex-row sm:items-end sm:justify-between sm:p-6">
       <div className="min-w-0 space-y-2">
         {breadcrumbs && breadcrumbs.length > 0 && (
           <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-app-muted">
@@ -47,8 +47,8 @@ export function PageHeader({
           <h1
             className={
               titleGradient
-                ? "font-display bg-gradient-to-r from-emerald-300 via-amber-200 to-cyan-300 bg-clip-text text-3xl font-semibold tracking-tight text-transparent sm:text-4xl"
-                : "font-display text-3xl font-semibold tracking-tight text-white sm:text-4xl"
+                ? "font-display bg-gradient-to-r from-emerald-300 via-amber-200 to-cyan-300 bg-clip-text text-2xl font-semibold tracking-tight text-transparent sm:text-3xl md:text-4xl"
+                : "font-display text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl"
             }
           >
             {title}
