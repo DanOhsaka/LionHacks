@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
+import { courseMasteryPercent } from "@/lib/course-completion";
 import {
   chapterRollupFromMetadata,
   mergeRollupIntoModuleStats,
@@ -305,19 +306,26 @@ export async function PATCH(request: Request) {
       console.error("[sessions PATCH] could not read course; skipping course aggregate sync");
     } else {
       const prevPct = Number(courseRow.completion_percent ?? 0);
-      const cc = correctN ?? 0;
-      const wc = wrongN ?? 0;
-      const answered = Math.max(0, Math.round(cc + wc));
-      const totalCp = Math.max(0, Math.round(Number(existing.checkpoints_total ?? 0)));
-      const accRounded =
-        accuracyN !== undefined ? Math.round(accuracyN * 10) / 10 : null;
-      const coveragePct =
-        totalCp > 0 && answered > 0
-          ? Math.min(100, Math.round((answered / totalCp) * 100))
-          : accRounded != null
-            ? Math.min(100, Math.round(accRounded))
-            : prevPct;
-      const nextPct = Math.max(prevPct, coveragePct);
+
+      const { count: checkpointCount } = await supabase
+        .from("checkpoints")
+        .select("id", { count: "exact", head: true })
+        .eq("course_id", existing.course_id);
+
+      const totalCp = Math.max(
+        0,
+        Math.round(Number(checkpointCount ?? existing.checkpoints_total ?? 0)),
+      );
+
+      const { data: endedSessions } = await supabase
+        .from("sessions")
+        .select("metadata, correct_count, wrong_count")
+        .eq("course_id", existing.course_id)
+        .eq("user_id", user.id)
+        .not("ended_at", "is", null);
+
+      const masteryPct = courseMasteryPercent(totalCp, endedSessions ?? []);
+      const nextPct = Math.max(prevPct, masteryPct);
 
       const addSeconds =
         durationN !== undefined && !Number.isNaN(durationN) ? Math.round(durationN) : 0;

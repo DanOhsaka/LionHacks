@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/dashboard/PageHeader";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LearnerGoalsCard } from "./learner-goals-card";
 import { Badge } from "@/components/ui/badge";
+import { courseMasteryPercent } from "@/lib/course-completion";
 import { computeStudyStreakUtc } from "@/lib/dashboard-stats";
 import { createClient } from "@/lib/supabase/server";
 import { ArrowRight, BarChart3, BookOpen, Sparkles, Upload } from "lucide-react";
@@ -35,12 +36,56 @@ export default async function DashboardPage() {
     .not("ended_at", "is", null);
 
   const courseList = courses ?? [];
-  const activeCourses = courseList.filter((c) => (c.completion_percent ?? 0) < 100).slice(0, 6);
+  const courseIds = courseList.map((c) => c.id);
+
+  const { data: checkpointRows } =
+    courseIds.length > 0
+      ? await supabase.from("checkpoints").select("course_id").in("course_id", courseIds)
+      : { data: [] as { course_id: string }[] };
+
+  const checkpointTotalByCourse = new Map<string, number>();
+  for (const row of checkpointRows ?? []) {
+    checkpointTotalByCourse.set(
+      row.course_id,
+      (checkpointTotalByCourse.get(row.course_id) ?? 0) + 1,
+    );
+  }
+
+  const { data: endedSessions } =
+    courseIds.length > 0
+      ? await supabase
+          .from("sessions")
+          .select("course_id, metadata, correct_count, wrong_count")
+          .eq("user_id", user.id)
+          .in("course_id", courseIds)
+          .not("ended_at", "is", null)
+      : { data: [] as { course_id: string; metadata: unknown; correct_count: number | null; wrong_count: number | null }[] };
+
+  const sessionsByCourse = new Map<
+    string,
+    { metadata?: unknown; correct_count?: number | null; wrong_count?: number | null }[]
+  >();
+  for (const s of endedSessions ?? []) {
+    const list = sessionsByCourse.get(s.course_id) ?? [];
+    list.push(s);
+    sessionsByCourse.set(s.course_id, list);
+  }
+
+  const masteryByCourse = new Map<string, number>();
+  for (const c of courseList) {
+    const totalCp = checkpointTotalByCourse.get(c.id) ?? 0;
+    const sessions = sessionsByCourse.get(c.id) ?? [];
+    masteryByCourse.set(c.id, courseMasteryPercent(totalCp, sessions));
+  }
+
+  const activeCourses = courseList
+    .filter((c) => (masteryByCourse.get(c.id) ?? 0) < 100)
+    .slice(0, 6);
   const avgCompletion =
     courseList.length === 0
       ? 0
       : Math.round(
-          courseList.reduce((a, c) => a + Number(c.completion_percent ?? 0), 0) / courseList.length,
+          courseList.reduce((a, c) => a + (masteryByCourse.get(c.id) ?? 0), 0) / courseList.length,
         );
 
   const { data: totals } = await supabase
@@ -77,7 +122,11 @@ export default async function DashboardPage() {
       <LearnerGoalsCard />
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Active courses" value={String(activeCourses.length || courseList.length)} />
-        <StatCard label="Avg completion" value={`${avgCompletion}%`} />
+        <StatCard
+          label="Avg mastery"
+          value={`${avgCompletion}%`}
+          hint="Average share of checkpoints you've answered correctly at least once, across your courses."
+        />
         <StatCard label="Time invested" value={`${totalHours}h`} />
         <StatCard label="Current streak" value={`${streak}d`} highlight />
       </section>
@@ -135,7 +184,7 @@ export default async function DashboardPage() {
                     <p className="text-xs text-zinc-500">{c.subject}</p>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-zinc-400">
-                    <span>{Math.round(Number(c.completion_percent ?? 0))}%</span>
+                    <span>{masteryByCourse.get(c.id) ?? 0}%</span>
                     <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5 group-hover:text-cyan-300" />
                   </div>
                 </Link>
@@ -197,15 +246,18 @@ function StatCard({
   label,
   value,
   highlight,
+  hint,
 }: {
   label: string;
   value: string;
   highlight?: boolean;
+  hint?: string;
 }) {
   const numeric = Number.parseFloat(value.replace(/[^\d.]/g, ""));
   const progress = Number.isFinite(numeric) ? Math.max(8, Math.min(100, numeric)) : 20;
   return (
     <div
+      title={hint}
       className={`rounded-2xl border p-4 shadow-lg transition hover:-translate-y-[1px] ${
         highlight
           ? "border-emerald-500/50 bg-gradient-to-br from-emerald-500/20 to-cyan-500/10 shadow-emerald-900/20"
