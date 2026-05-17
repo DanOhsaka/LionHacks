@@ -46,9 +46,12 @@ export const metadata: Metadata = {
   applicationName: "PridePath",
   icons: {
     icon: [
+      { url: "/favicon-16.png", type: "image/png", sizes: "16x16" },
+      { url: "/favicon-32.png", type: "image/png", sizes: "32x32" },
+      { url: "/favicon-48.png", type: "image/png", sizes: "48x48" },
       { url: "/icon.png", type: "image/png", sizes: "512x512" },
-      { url: "/pridepath-lion.png", type: "image/png", sizes: "512x512" },
     ],
+    shortcut: "/favicon-32.png",
     apple: "/apple-touch-icon.png",
   },
   openGraph: {
