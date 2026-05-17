@@ -45,8 +45,11 @@ export const metadata: Metadata = {
   description: siteDescription,
   applicationName: "PridePath",
   icons: {
-    icon: "/pridepath-lion.png",
-    apple: "/pridepath-lion.png",
+    icon: [
+      { url: "/icon.png", type: "image/png", sizes: "512x512" },
+      { url: "/pridepath-lion.png", type: "image/png", sizes: "512x512" },
+    ],
+    apple: "/apple-touch-icon.png",
   },
   openGraph: {
     type: "website",
