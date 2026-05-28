@@ -60,8 +60,17 @@ export const usePreferencesStore = create<PreferencesState>()(
     }),
     {
       name: "pridepath-preferences",
+      version: 2,
+      migrate: (persisted) => {
+        const state =
+          persisted && typeof persisted === "object"
+            ? (persisted as Record<string, unknown>)
+            : {};
+        const nextState = { ...state };
+        delete nextState.theme;
+        return nextState as PreferencesState;
+      },
       partialize: (s) => ({
-        theme: s.theme,
         soundEnabled: s.soundEnabled,
         soundInZen: s.soundInZen,
         reduceUiMotion: s.reduceUiMotion,

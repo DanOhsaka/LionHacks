@@ -97,7 +97,7 @@ export default function RootLayout({
     >
       <body className="min-h-screen bg-background font-sans antialiased text-foreground">
         <Script id="pridepath-theme-init" strategy="beforeInteractive">
-          {`(function(){try{var raw=localStorage.getItem("pridepath-preferences");var theme="dark";if(raw){var p=JSON.parse(raw);if(p&&p.state&&p.state.theme)theme=p.state.theme;}var resolved=theme==="system"?(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"):theme;document.documentElement.setAttribute("data-theme",resolved);document.documentElement.style.colorScheme=resolved;}catch(e){document.documentElement.setAttribute("data-theme","dark");}})();`}
+          {`(function(){document.documentElement.setAttribute("data-theme","dark");document.documentElement.style.colorScheme="dark";})();`}
         </Script>
         <PreferencesProvider>
           {children}
