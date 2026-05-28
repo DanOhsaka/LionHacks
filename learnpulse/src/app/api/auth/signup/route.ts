@@ -13,6 +13,16 @@ function isFetchFailure(message: string | undefined): boolean {
   return m.includes("fetch failed") || m.includes("network") || m.includes("timed out");
 }
 
+function profileInsertError(message: string): string {
+  if (message.toLowerCase().includes("permission denied")) {
+    return (
+      "Database permissions are missing on profiles. In Supabase SQL Editor, run learnpulse/supabase/grants.sql " +
+      "(after schema.sql), add SUPABASE_SERVICE_ROLE_KEY to .env.local, and restart npm run dev."
+    );
+  }
+  return message;
+}
+
 export async function POST(request: NextRequest) {
   let body: unknown;
   try {
@@ -109,7 +119,10 @@ export async function POST(request: NextRequest) {
     if (profileError) {
       console.error("[signup] admin profile insert failed", profileError.message);
       await admin.auth.admin.deleteUser(userId).catch(() => undefined);
-      return NextResponse.json({ error: profileError.message }, { status: 400 });
+      return NextResponse.json(
+        { error: profileInsertError(profileError.message) },
+        { status: 400 },
+      );
     }
   } else {
     /* Fallback when service role key is unavailable. */
@@ -125,13 +138,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: message }, { status: 400 });
     }
     userId = authRes.data.user.id;
+
+    /* Sign in before profile insert so RLS sees auth.uid() = user id. */
+    const signIn = await supabase.auth.signInWithPassword({ email, password });
+    if (signIn.error) {
+      return NextResponse.json(
+        {
+          error:
+            "Account was created but sign-in failed. Try logging in, or add SUPABASE_SERVICE_ROLE_KEY for reliable signup.",
+        },
+        { status: 400 },
+      );
+    }
+
     const { error: profileError } = await supabase.from("profiles").insert({
       id: userId,
       username: cleanUsername,
     });
     if (profileError) {
-      return NextResponse.json({ error: profileError.message }, { status: 400 });
+      return NextResponse.json(
+        { error: profileInsertError(profileError.message) },
+        { status: 400 },
+      );
     }
+
+    const res = NextResponse.json({
+      user: { id: userId, username: cleanUsername },
+    });
+    return applyAuthCookies(res);
   }
 
   const signIn = await supabase.auth.signInWithPassword({ email, password });
