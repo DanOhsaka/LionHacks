@@ -52,133 +52,95 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const cleanUsername = username.trim();
+  const email = pridepathEmail(cleanUsername);
   const { supabase, applyAuthCookies } = createSupabaseRouteHandlerClient(request);
-  const email = pridepathEmail(username.trim());
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  const hasAdmin = Boolean(supabaseUrl && serviceKey);
 
-  let authData: { user: { id: string } | null } | null = null;
-  let authError: { message: string } | null = null;
-
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    try {
-      const result = await supabase.auth.signUp({
-        email,
-        password,
-      });
-      authData = result.data as { user: { id: string } | null };
-      authError = result.error;
-      if (!authError) break;
-      if (isFetchFailure(authError.message)) {
-        console.warn(`[signup] signUp fetch failure, retry ${attempt + 1}/3`);
-        continue;
-      }
-      break;
-    } catch (error) {
-      console.error(`[signup] signUp threw, retry ${attempt + 1}/3`, error);
-      if (attempt === 2) {
-        return NextResponse.json(
-          {
-            error:
-              "Signup service is temporarily unavailable. Please try again in a minute.",
-          },
-          { status: 503 },
-        );
-      }
-    }
-  }
-
-  if (authError) {
-    console.error("[signup] auth error", authError.message);
-    if (isFetchFailure(authError.message)) {
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-      if (supabaseUrl && serviceKey) {
-        const admin = createClient(supabaseUrl, serviceKey, {
+  const admin =
+    hasAdmin && supabaseUrl && serviceKey
+      ? createClient(supabaseUrl, serviceKey, {
           auth: {
             persistSession: false,
             autoRefreshToken: false,
             detectSessionInUrl: false,
           },
-        });
+        })
+      : null;
 
-        const adminCreate = await admin.auth.admin.createUser({
-          email,
-          password,
-          email_confirm: true,
-        });
-        if (!adminCreate.error && adminCreate.data.user) {
-          authData = { user: { id: adminCreate.data.user.id } };
-          authError = null;
-          const signIn = await supabase.auth.signInWithPassword({ email, password });
-          if (signIn.error) {
-            console.warn("[signup] fallback user created but auto sign-in failed", signIn.error.message);
-          }
-        } else {
-          console.error("[signup] admin fallback failed", adminCreate.error?.message);
-        }
+  let userId: string | null = null;
+
+  if (admin) {
+    const { data: existingProfile, error: existingProfileError } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("username", cleanUsername)
+      .maybeSingle();
+    if (existingProfileError) {
+      console.error("[signup] profile precheck failed", existingProfileError.message);
+    }
+    if (existingProfile) {
+      return NextResponse.json({ error: "Username is already taken" }, { status: 400 });
+    }
+
+    const adminCreate = await admin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+    });
+    if (adminCreate.error || !adminCreate.data.user) {
+      const message = adminCreate.error?.message ?? "Could not create account";
+      if (isFetchFailure(message)) {
+        return NextResponse.json(
+          { error: "Signup service is temporarily unavailable. Please try again in a minute." },
+          { status: 503 },
+        );
       }
+      return NextResponse.json({ error: message }, { status: 400 });
     }
+    userId = adminCreate.data.user.id;
 
-    if (authError && isFetchFailure(authError.message)) {
-      return NextResponse.json(
-        {
-          error:
-            "Signup service is temporarily unavailable. Please try again in a minute.",
-        },
-        { status: 503 },
-      );
-    }
-    return NextResponse.json(
-      { error: authError?.message ?? "Could not create account" },
-      { status: 400 },
-    );
-  }
-
-  if (!authData?.user) {
-    return NextResponse.json(
-      { error: "Sign up did not return a user" },
-      { status: 400 },
-    );
-  }
-
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-
-  let profileError: { message: string } | null = null;
-  if (supabaseUrl && serviceKey) {
-    const admin = createClient(supabaseUrl, serviceKey, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-        detectSessionInUrl: false,
-      },
+    const { error: profileError } = await admin.from("profiles").insert({
+      id: userId,
+      username: cleanUsername,
     });
-    const { error } = await admin.from("profiles").insert({
-      id: authData.user.id,
-      username: username.trim(),
-    });
-    profileError = error;
-    /* If service role key is stale/misconfigured, retry with user-scoped client before failing. */
     if (profileError) {
-      const { error: fallbackError } = await supabase.from("profiles").insert({
-        id: authData.user.id,
-        username: username.trim(),
-      });
-      profileError = fallbackError;
+      console.error("[signup] admin profile insert failed", profileError.message);
+      await admin.auth.admin.deleteUser(userId).catch(() => undefined);
+      return NextResponse.json({ error: profileError.message }, { status: 400 });
     }
   } else {
-    const { error } = await supabase.from("profiles").insert({
-      id: authData.user.id,
-      username: username.trim(),
+    /* Fallback when service role key is unavailable. */
+    const authRes = await supabase.auth.signUp({ email, password });
+    if (authRes.error || !authRes.data.user) {
+      const message = authRes.error?.message ?? "Could not create account";
+      if (isFetchFailure(message)) {
+        return NextResponse.json(
+          { error: "Signup service is temporarily unavailable. Please try again in a minute." },
+          { status: 503 },
+        );
+      }
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+    userId = authRes.data.user.id;
+    const { error: profileError } = await supabase.from("profiles").insert({
+      id: userId,
+      username: cleanUsername,
     });
-    profileError = error;
+    if (profileError) {
+      return NextResponse.json({ error: profileError.message }, { status: 400 });
+    }
   }
 
-  if (profileError) {
-    return NextResponse.json({ error: profileError.message }, { status: 400 });
+  const signIn = await supabase.auth.signInWithPassword({ email, password });
+  if (signIn.error) {
+    console.warn("[signup] account created but auto sign-in failed", signIn.error.message);
   }
 
   const res = NextResponse.json({
-    user: { id: authData.user.id, username: username.trim() },
+    user: { id: userId, username: cleanUsername },
   });
   return applyAuthCookies(res);
 }
