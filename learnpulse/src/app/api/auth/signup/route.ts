@@ -7,6 +7,12 @@ function pridepathEmail(username: string) {
   return `${username}@pridepath.app`;
 }
 
+function isFetchFailure(message: string | undefined): boolean {
+  if (!message) return false;
+  const m = message.toLowerCase();
+  return m.includes("fetch failed") || m.includes("network") || m.includes("timed out");
+}
+
 export async function POST(request: NextRequest) {
   let body: unknown;
   try {
@@ -51,27 +57,68 @@ export async function POST(request: NextRequest) {
 
   let authData: { user: { id: string } | null } | null = null;
   let authError: { message: string } | null = null;
-  try {
-    const result = await supabase.auth.signUp({
-      email,
-      password,
-    });
-    authData = result.data as { user: { id: string } | null };
-    authError = result.error;
-  } catch (error) {
-    console.error("[signup] supabase.auth.signUp threw", error);
-    return NextResponse.json(
-      {
-        error:
-          "Signup service is temporarily unavailable. Please try again in a minute.",
-      },
-      { status: 503 },
-    );
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const result = await supabase.auth.signUp({
+        email,
+        password,
+      });
+      authData = result.data as { user: { id: string } | null };
+      authError = result.error;
+      if (!authError) break;
+      if (isFetchFailure(authError.message)) {
+        console.warn(`[signup] signUp fetch failure, retry ${attempt + 1}/3`);
+        continue;
+      }
+      break;
+    } catch (error) {
+      console.error(`[signup] signUp threw, retry ${attempt + 1}/3`, error);
+      if (attempt === 2) {
+        return NextResponse.json(
+          {
+            error:
+              "Signup service is temporarily unavailable. Please try again in a minute.",
+          },
+          { status: 503 },
+        );
+      }
+    }
   }
 
   if (authError) {
     console.error("[signup] auth error", authError.message);
-    if (authError.message.toLowerCase().includes("fetch failed")) {
+    if (isFetchFailure(authError.message)) {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+      if (supabaseUrl && serviceKey) {
+        const admin = createClient(supabaseUrl, serviceKey, {
+          auth: {
+            persistSession: false,
+            autoRefreshToken: false,
+            detectSessionInUrl: false,
+          },
+        });
+
+        const adminCreate = await admin.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true,
+        });
+        if (!adminCreate.error && adminCreate.data.user) {
+          authData = { user: { id: adminCreate.data.user.id } };
+          authError = null;
+          const signIn = await supabase.auth.signInWithPassword({ email, password });
+          if (signIn.error) {
+            console.warn("[signup] fallback user created but auto sign-in failed", signIn.error.message);
+          }
+        } else {
+          console.error("[signup] admin fallback failed", adminCreate.error?.message);
+        }
+      }
+    }
+
+    if (authError && isFetchFailure(authError.message)) {
       return NextResponse.json(
         {
           error:
