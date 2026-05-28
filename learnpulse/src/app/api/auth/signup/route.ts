@@ -127,7 +127,10 @@ export async function POST(request: NextRequest) {
         { status: 503 },
       );
     }
-    return NextResponse.json({ error: authError.message }, { status: 400 });
+    return NextResponse.json(
+      { error: authError?.message ?? "Could not create account" },
+      { status: 400 },
+    );
   }
 
   if (!authData?.user) {
