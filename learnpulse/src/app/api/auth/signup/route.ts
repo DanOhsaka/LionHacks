@@ -49,16 +49,41 @@ export async function POST(request: NextRequest) {
   const { supabase, applyAuthCookies } = createSupabaseRouteHandlerClient(request);
   const email = pridepathEmail(username.trim());
 
-  const { data: authData, error: authError } = await supabase.auth.signUp({
-    email,
-    password,
-  });
+  let authData: { user: { id: string } | null } | null = null;
+  let authError: { message: string } | null = null;
+  try {
+    const result = await supabase.auth.signUp({
+      email,
+      password,
+    });
+    authData = result.data as { user: { id: string } | null };
+    authError = result.error;
+  } catch (error) {
+    console.error("[signup] supabase.auth.signUp threw", error);
+    return NextResponse.json(
+      {
+        error:
+          "Signup service is temporarily unavailable. Please try again in a minute.",
+      },
+      { status: 503 },
+    );
+  }
 
   if (authError) {
+    console.error("[signup] auth error", authError.message);
+    if (authError.message.toLowerCase().includes("fetch failed")) {
+      return NextResponse.json(
+        {
+          error:
+            "Signup service is temporarily unavailable. Please try again in a minute.",
+        },
+        { status: 503 },
+      );
+    }
     return NextResponse.json({ error: authError.message }, { status: 400 });
   }
 
-  if (!authData.user) {
+  if (!authData?.user) {
     return NextResponse.json(
       { error: "Sign up did not return a user" },
       { status: 400 },
@@ -82,6 +107,14 @@ export async function POST(request: NextRequest) {
       username: username.trim(),
     });
     profileError = error;
+    /* If service role key is stale/misconfigured, retry with user-scoped client before failing. */
+    if (profileError) {
+      const { error: fallbackError } = await supabase.from("profiles").insert({
+        id: authData.user.id,
+        username: username.trim(),
+      });
+      profileError = fallbackError;
+    }
   } else {
     const { error } = await supabase.from("profiles").insert({
       id: authData.user.id,
