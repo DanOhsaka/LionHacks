@@ -20,6 +20,14 @@ export async function middleware(request: NextRequest) {
   const response = NextResponse.next({
     request: { headers: request.headers },
   });
+  const pathname = request.nextUrl.pathname;
+  const protectedPath = isProtectedPath(pathname) && !pathname.startsWith("/api/");
+
+  /* Do not hit auth backend for public pages; this avoids site-wide failures when
+   * Supabase is temporarily slow/unreachable. */
+  if (!protectedPath) {
+    return response;
+  }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
@@ -48,19 +56,19 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const pathname = request.nextUrl.pathname;
+  let userId: string | null = null;
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    userId = user?.id ?? null;
+  } catch (error) {
+    console.warn("[middleware] getUser failed; redirecting protected route to login", error);
+  }
 
   /* One auth check here avoids repeating `getUser()` in the dashboard layout on every
    * RSC navigation (middleware + layout was two round-trips per click). */
-  if (
-    user == null &&
-    isProtectedPath(pathname) &&
-    !pathname.startsWith("/api/")
-  ) {
+  if (userId == null) {
     const login = new URL("/login", request.url);
     login.searchParams.set("next", pathname + request.nextUrl.search);
     return NextResponse.redirect(login);
