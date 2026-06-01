@@ -5,6 +5,18 @@ import { generateCurriculumFromFile } from "@/lib/mistral/curriculum";
 import { createClient } from "@/lib/supabase/server";
 
 const MAX_BYTES = 15 * 1024 * 1024;
+const STORAGE_BUCKET = "course-materials";
+
+function storageUploadError(message: string): string {
+  const lower = message.toLowerCase();
+  if (lower.includes("bucket not found")) {
+    return (
+      "Storage bucket is missing. In Supabase SQL Editor, run learnpulse/supabase/storage.sql " +
+      "(after schema.sql and grants.sql), then try uploading again."
+    );
+  }
+  return `Storage upload failed: ${message}`;
+}
 
 const MIME_MAP: Record<string, string> = {
   pdf: "application/pdf",
@@ -54,7 +66,7 @@ export async function POST(request: Request) {
   const objectPath = `${user.id}/${randomUUID()}-${file.name.replace(/[^\w.\-]+/g, "_")}`;
 
   const { error: uploadError } = await supabase.storage
-    .from("course-materials")
+    .from(STORAGE_BUCKET)
     .upload(objectPath, buffer, {
       contentType: mimeType,
       upsert: false,
@@ -62,7 +74,7 @@ export async function POST(request: Request) {
 
   if (uploadError) {
     return NextResponse.json(
-      { error: `Storage upload failed: ${uploadError.message}` },
+      { error: storageUploadError(uploadError.message) },
       { status: 400 },
     );
   }
@@ -100,7 +112,6 @@ export async function POST(request: Request) {
 
   const courseId = courseRow.id as string;
   const rows = curriculum.checkpoints.map((cp, idx) => ({
-    user_id: user.id,
     course_id: courseId,
     chapter_index: cp.chapterIndex ?? 0,
     chapter_title: cp.chapterTitle || "Chapter",

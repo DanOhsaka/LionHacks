@@ -107,5 +107,4 @@ create policy "achievements_all_own" on public.achievements for all using (auth.
 
 create policy "wellness_all_own" on public.wellness_logs for all using (auth.uid() = user_id);
 
--- Storage bucket "course-materials" — create in Dashboard; policies:
--- allow authenticated users insert/select/update/delete own folder: (storage.foldername(name))[1] = auth.uid()::text
+-- Storage: run supabase/storage.sql to create the course-materials bucket and policies.

@@ -51,6 +51,13 @@ Never commit **`.env.local`** or the service role key.
 
 SQL migrations live in **`supabase/migrations/`**. Apply them to your Supabase project (SQL editor or Supabase CLI) so the schema matches **`supabase/schema.sql`**.
 
+On a new Supabase project, also run (in order):
+
+1. **`supabase/schema.sql`**
+2. **`supabase/migrations/`** (timestamp order)
+3. **`supabase/grants.sql`** — table permissions for API roles
+4. **`supabase/storage.sql`** — `course-materials` bucket for file uploads
+
 If the UI references a column your database does not have yet (for example analytics and `wrong_count` on `sessions`), run the corresponding migration or align `schema.sql` with your remote DB.
 
 ---
