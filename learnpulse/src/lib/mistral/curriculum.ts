@@ -79,6 +79,8 @@ Rules:
 - Produce between 12 and 24 checkpoints spread across chapters.
 - Questions must be answerable from the uploaded material.
 - "correctIndex" is 0-based index into "options".
+- Vary "correctIndex" across 0, 1, 2, and 3; do not put most answers at index 0.
+- Write option text as full answers (not labels like "A" or "Option A").
 `;
 
   const result = await mistralChatComplete({
